@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#131722">
+<title>TA+VSA Visualizer — Multi-Source Volume</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="title-row">
+    <h1>TA+VSA Visualizer</h1>
+    <span class="audit-badge">AUDITED 2026-08-21 — BTCUSDT · ETHUSDT</span>
+  </div>
+  <div class="controls">
+    <select id="symbol" title="Symbol"></select>
+    <div id="intervals" class="btn-group" title="Audit-confirmed gap-clean intervals"></div>
+    <div class="source-wrap">
+      <select id="source" title="Volume definition driving the volume panel"></select>
+      <span class="source-note">Exchange volume is prone to wash trading; on-chain settled
+        value is shown by default. Switch anytime. Choice is remembered.</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="chart"></div>
+  <div id="statusbar" class="statusbar"></div>
+</main>
+
+<details id="holder-panel" open>
+  <summary>On-Chain Holder Panel</summary>
+  <div id="holder-content" class="holder-content">
+    <div class="holder-empty">Loading…</div>
+  </div>
+</details>
+
+<footer>
+  <div id="data-note"></div>
+  Data: <code>vsa_klines</code> (gap-flagged bars) + <code>true_volume</code> (proxy stack) +
+  <code>large_trades</code> (Tier-3). OHLC merge rule: spot bars to 2024-12-31 (spot 1d
+  extended via flagged cross-fills), then futures UM to the latest refresh. Every volume
+  number carries its source + confidence tier on hover.
+</footer>
+
+<div id="tooltip" class="tooltip" style="display:none"></div>
+
+<script src="vendor/lightweight-charts.standalone.production.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
