@@ -63,6 +63,44 @@ async function loadJSONFile(path) {
   fileCache.set(path, obj);
   return obj;
 }
+/* ---------------- live tail (static mode only) ---------------- */
+/* The static export ends at the last Vision publish (~1 day lag). To show
+ * "today" anyway, fetch the in-progress candles straight from Binance's
+ * public API (CORS-open) and append them as clearly-marked live/preliminary
+ * bars: price + exchange volume only. True volume for those bars arrives
+ * with the next Vision publish (~24 h lag) — the tooltip and status bar
+ * say so. Futures first (the series tail is futures UM), spot fallback,
+ * none if Binance is unreachable (the page then just shows the export). */
+const liveCache = new Map();                       // sym_iv -> {t, bars}
+const LIVE_TTL = 5 * 60 * 1000;                    // re-fetch the current candle every 5 min
+const LIVE_BASES = [
+  "https://fapi.binance.com/fapi/v1/klines",
+  "https://api.binance.com/api/v3/klines",
+];
+async function fetchLiveTail(sym, iv) {
+  if (iv === "1m") return [];
+  const key = sym + "_" + iv;
+  const hit = liveCache.get(key);
+  if (hit && Date.now() - hit.t < LIVE_TTL) return hit.bars;
+  for (const base of LIVE_BASES) {
+    try {
+      const r = await fetch(`${base}?symbol=${sym}&interval=${iv}&limit=50`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const kl = await r.json();
+      const now = Date.now();
+      const bars = kl.map(k => ({
+        open_time: k[0], open: +k[1], high: +k[2], low: +k[3], close: +k[4],
+        volume: +k[5], taker_buy: +k[9],
+        market: base.includes("fapi") ? "futures_um" : "spot",
+        resampled: false, cross_filled: false, follows_gap: false,
+        live: true,
+      })).filter(b => b.open_time <= now);
+      liveCache.set(key, { t: Date.now(), bars });
+      return bars;
+    } catch (e) { /* try the next base */ }
+  }
+  return [];                                       // offline/blocked -> exported data only
+}
 async function api(path) {
   if (!STATIC) {                     // live mode: the real backend
     const r = await fetch(path);
@@ -84,9 +122,15 @@ async function api(path) {
     let truncated = false;
     const limit = q.limit === undefined ? 250000 : Number(q.limit);
     if (bars.length > limit) { bars = bars.slice(-limit); truncated = true; }
+    const lastT = bars.length ? bars[bars.length - 1].open_time : 0;
     let gaps = resp.gap_slots;
     if (q.start !== undefined) gaps = gaps.filter(g => g >= Number(q.start));
     if (q.end !== undefined) gaps = gaps.filter(g => g <= Number(q.end));
+    // live tail: today's candles from Binance's public API (price only)
+    let live = (await fetchLiveTail(sym, iv)).filter(b => b.open_time > lastT);
+    if (q.start !== undefined) live = live.filter(b => b.open_time >= Number(q.start));
+    if (q.end !== undefined) live = live.filter(b => b.open_time <= Number(q.end));
+    if (live.length) bars = bars.concat(live);
     return { symbol: sym, interval: iv, bars, gap_slots: gaps, truncated,
              coverage: { start: bars.length ? bars[0].open_time : null,
                          end: bars.length ? bars[bars.length - 1].open_time : null,
@@ -99,6 +143,26 @@ async function api(path) {
     if (q.end !== undefined) bars = bars.filter(b => b.open_time <= Number(q.end));
     const limit = q.limit === undefined ? 30000 : Number(q.limit);
     if (bars.length > limit) bars = bars.slice(-limit);
+    // synthetic rows for live candles: exchange volume only; the rest of the
+    // true-volume stack is marked pending until the next Vision publish
+    const lastT = bars.length ? bars[bars.length - 1].open_time : 0;
+    let live = (await fetchLiveTail(sym, iv)).filter(b => b.open_time > lastT);
+    if (q.start !== undefined) live = live.filter(b => b.open_time >= Number(q.start));
+    if (q.end !== undefined) live = live.filter(b => b.open_time <= Number(q.end));
+    if (live.length) {
+      bars = bars.concat(live.map(b => ({
+        open_time: b.open_time, pending: true,
+        sources: {
+          exchange_volume: b.volume,
+          tape_rollup_volume: null,
+          onchain_network_volume: null,
+          large_trade_notional: null,
+          open_interest_delta: null,
+          taker_buy_sell_split: { buy: b.taker_buy, sell: Math.max(0, b.volume - (b.taker_buy || 0)) },
+          top_trader_positioning: null,
+        },
+      })));
+    }
     return { symbol: sym, interval: iv, sources: resp.sources, bars, notes: resp.notes };
   }
   throw new Error("unknown route " + path);
@@ -305,11 +369,17 @@ chart.subscribeCrosshairMove(param => {
     rows.push(row);
     void srcMeta;
   }
-  const mkt = b.market === "spot" ? "spot" : "futures UM" + (b.resampled ? " (resampled from 1h)" : "");
-  tooltip.innerHTML = `<h3>${fmtTs(openTime, S.interval)} · ${mkt}${b.cross_filled ? " · cross-filled" : ""}${b.follows_gap ? " · follows gap" : ""}</h3>
+  let mkt = b.market === "spot" ? "spot" : "futures UM" + (b.resampled ? " (resampled from 1h)" : "");
+  if (b.live) mkt = "LIVE " + mkt + " (Binance API)";
+  const liveNote = b.live
+    ? `<div class="holder-note" style="margin-top:6px">⚠ Live candle — preliminary. Only exchange-reported volume
+       exists for it; the true-volume sources (tape, on-chain, positioning) arrive with the next Vision
+       publish (~24 h lag, usually by ~16:30 UTC+8 the next day).</div>`
+    : "";
+  tooltip.innerHTML = `<h3>${fmtTs(openTime, S.interval)} · ${mkt}${b.cross_filled ? " · cross-filled" : ""}${b.follows_gap ? " · follows gap" : ""}${b.live ? " · ⚠" : ""}</h3>
     <div class="ohlc"><span>O ${fmtNum(b.open, 4)}</span><span>H <b style="color:${UP}">${fmtNum(b.high, 4)}</b></span>
     <span>L <b style="color:${DOWN}">${fmtNum(b.low, 4)}</b></span><span>C ${fmtNum(b.close, 4)}</span></div>
-    <table>${rows.join("")}</table>`;
+    <table>${rows.join("")}</table>${liveNote}`;
   tooltip.style.display = "block";
   const pad = 14, tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
   let x = param.point.x + pad, y = param.point.y + pad;
@@ -325,6 +395,7 @@ function updateStatus() {
   const gapsInView = S.bars.filter(b => b.follows_gap).length;
   const cross = S.bars.filter(b => b.cross_filled).length;
   const resampled = S.bars.filter(b => b.resampled).length;
+  const live = S.bars.filter(b => b.live).length;
   const bar = document.getElementById("statusbar");
   bar.innerHTML = `<span>Symbol <b>${S.symbol}</b></span>
     <span>Interval <b>${S.interval}</b></span>
@@ -332,6 +403,7 @@ function updateStatus() {
     <span>Gap-flagged <b>${gapsInView}</b>${S.gapSlots.length ? ` (+${S.gapSlots.length} empty slots)` : ""}</span>
     <span>Cross-filled <b>${cross}</b></span>
     <span>Resampled <b>${resampled}</b></span>
+    ${live ? `<span>⚠ Live today <b>${live} bars</b> — price only (Binance API) · true volume expected with the next Vision publish (~24 h lag)</span>` : ""}
     <span id="status-source"></span>
     <span id="status-large"></span>
     <span class="mkt-note">OHLC: spot → 2024-12-31, then futures UM → latest (refreshed before each session)</span>`;
@@ -465,7 +537,9 @@ document.getElementById("holder-panel").addEventListener("toggle", () => {
     catch (e) { STATIC = null; }        // no manifest -> local server mode
     if (STATIC && STATIC.data_version)
       document.getElementById("data-note").textContent =
-        "Data through " + STATIC.data_version + " — updated when your refresh runs";
+        "Data through " + STATIC.data_version + " — plus live today's candles (price only, Binance API). " +
+        "True volume for today arrives with the next Vision publish (~24 h lag, usually by ~16:30 UTC+8 the next day); " +
+        "re-open this page after the daily refresh+publish for full data.";
     const sym = await api("/api/symbols");
     S.audited = sym.audited;
     S.defaultInterval = sym.default_interval;
