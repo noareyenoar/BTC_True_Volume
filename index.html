@@ -16,6 +16,10 @@
   <div class="controls">
     <select id="symbol" title="Symbol"></select>
     <div id="intervals" class="btn-group" title="Audit-confirmed gap-clean intervals"></div>
+    <div class="profile-wrap">
+      <span class="ctl-label">Profile window</span>
+      <div id="profile-window" class="btn-group" title="Price range the right-edge volume profile summarises — independent of the chart's own zoom"></div>
+    </div>
     <div class="source-wrap">
       <select id="source" title="Volume definition driving the volume panel"></select>
       <span class="source-note">Exchange volume is prone to wash trading; on-chain settled
@@ -39,9 +43,16 @@
 <footer>
   <div id="data-note"></div>
   Data: <code>vsa_klines</code> (gap-flagged bars) + <code>true_volume</code> (proxy stack) +
-  <code>large_trades</code> (Tier-3). OHLC merge rule: spot bars to 2024-12-31 (spot 1d
-  extended via flagged cross-fills), then futures UM to the latest refresh. Every volume
-  number carries its source + confidence tier on hover.
+  <code>large_trades</code> (Tier-3) + <code>volume_profile</code> (tape by price) +
+  <code>urpd_snapshot</code> (on-chain cost basis). OHLC merge rule: spot bars to 2024-12-31
+  (spot 1d extended via flagged cross-fills), then futures UM to the latest refresh. Every
+  volume number carries its source + confidence tier on hover.<br>
+  Right-edge profile: <b class="legend-tape">bars</b> = traded notional per price level over
+  the selected window (Binance USD-M futures tape, one venue) — a level where real volume
+  actually changed hands. <b class="legend-urpd">Purple silhouette</b> = on-chain supply by
+  cost basis (URPD, one snapshot, independently scaled: a different measure at a different
+  granularity, so the two are not comparable bar-for-bar). This is <i>not</i> STH/LTH supply —
+  that needs per-UTXO age data this project does not collect.
 </footer>
 
 <div id="tooltip" class="tooltip" style="display:none"></div>

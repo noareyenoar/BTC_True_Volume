@@ -15,6 +15,8 @@ const S = {
   source: localStorage.getItem("vsa_source") || "onchain_network_volume",
   audited: [], defaultInterval: "1h",
   holder: null, fetchSeq: 0,
+  profileWindow: localStorage.getItem("vsa_profile_window") || "90d",
+  profileCache: new Map(),
 };
 
 /* ---------------- helpers ---------------- */
@@ -114,6 +116,11 @@ async function api(path) {
   const iv = q.interval || "1h";
   if (what === "symbols") return loadJSONFile(STATIC.files.symbols);
   if (what === "onchain_snapshot") return loadJSONFile(STATIC.files.onchain[sym]);
+  if (what === "volume_profile") {
+    const pf = STATIC.files.profile;
+    if (!pf) throw new Error("this export has no volume profile — re-publish the site");
+    return loadJSONFile(pf[sym + "_" + (q.window || "90d")]);
+  }
   if (what === "ohlc") {
     const resp = await loadJSONFile(STATIC.files.bars[sym + "_" + iv]);
     let bars = resp.bars;
@@ -187,6 +194,136 @@ const volSeries = chart.addHistogramSeries({
 });
 chart.priceScale("").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
 let takerBuySeries = null, takerSellSeries = null;
+
+/* ---------------- volume profile (traded volume by price) ----------------
+ * Horizontal bars anchored to the right edge of the plot at the price levels
+ * where volume actually traded over the selected window, painted UNDER the
+ * candles — "where is there a real, volume-confirmed base?".
+ *
+ * Drawn as a series primitive (attachPrimitive) rather than an overlay canvas:
+ * the library paints it inside the pane, clips it to the plot area for free,
+ * and re-invokes the renderer on every repaint — so pan, pinch-zoom, resize and
+ * interval changes need no ResizeObserver, no requestAnimationFrame debounce and
+ * no coordinate bookkeeping. v4 has no priceScaleWidth(), and #chart is not
+ * position:relative, so an external overlay would have needed all of that plus a
+ * CSS change just to avoid silently positioning against the viewport.
+ *
+ * The profile is a SNAPSHOT of the chosen window, not a per-bar series: panning
+ * time never changes which price levels are drawn, so this deliberately does not
+ * hook the refreshBreakdown() visible-range path (which is range-scoped and would
+ * mangle an "all" window). */
+const profileState = { data: null };
+const AMBER_RGB = [245, 158, 11], GREEN_RGB = [38, 166, 154], RED_RGB = [239, 83, 80];
+function mixRgb(a, b, t) {
+  t = Math.max(0, Math.min(1, t));
+  return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`;
+}
+function drawProfile(target) {
+  const d = profileState.data;
+  if (!d || !d.buckets || !d.buckets.length) return;
+  target.useMediaCoordinateSpace(({ context: ctx, mediaSize }) => {
+    const w = d.bucket_usd, right = mediaSize.width, H = mediaSize.height;
+    let maxQ = 0;
+    for (const b of d.buckets) if (b.q > maxQ) maxQ = b.q;
+    if (!(maxQ > 0)) return;
+    const maxLen = right * 0.34;              // never swamp the candles
+
+    // URPD silhouette: on-chain supply by cost basis, drawn BEHIND the tape bars.
+    // A different measure AND a different granularity ($200 buckets, one snapshot),
+    // so it is scaled against its own max — a shared axis would silently
+    // misrepresent one of the two series.
+    const u = d.urpd;
+    if (u && u.buckets && u.buckets.length > 1) {
+      let maxS = 0;
+      for (const x of u.buckets) if (x.s > maxS) maxS = x.s;
+      if (maxS > 0) {
+        const maxLenU = maxLen * 0.95;
+        const pts = [];
+        for (const x of u.buckets) {
+          const y = candleSeries.priceToCoordinate(x.p);
+          if (y === null || y < -2 || y > H + 2) continue;
+          pts.push([y, Math.max(1, (x.s / maxS) * maxLenU)]);
+        }
+        if (pts.length > 1) {
+          ctx.beginPath();
+          ctx.moveTo(right, pts[0][0]);
+          for (const [y, len] of pts) ctx.lineTo(right - len, y);
+          ctx.lineTo(right, pts[pts.length - 1][0]);
+          ctx.closePath();
+          ctx.fillStyle = "rgba(176, 125, 255, 0.16)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(176, 125, 255, 0.55)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+
+    // value-area band (the 70% of volume around the POC)
+    const vaTop = candleSeries.priceToCoordinate(d.value_area.high);
+    const vaBot = candleSeries.priceToCoordinate(d.value_area.low);
+    if (vaTop !== null && vaBot !== null) {
+      ctx.fillStyle = "rgba(41, 98, 255, 0.07)";
+      ctx.fillRect(0, vaTop, right, Math.max(1, vaBot - vaTop));
+    }
+
+    // bars: right-anchored, one bucket tall, tinted by taker imbalance so a
+    // level where sellers were absorbed differs from one where buyers were trapped
+    for (const b of d.buckets) {
+      const yTop = candleSeries.priceToCoordinate(b.p + w);
+      const yBot = candleSeries.priceToCoordinate(b.p);
+      if (yTop === null || yBot === null) continue;
+      // skip bars entirely outside the pane (>= / <= so a bar whose edge lands
+      // exactly on the boundary — a zero-area rect — is skipped too). Bars that
+      // merely straddle an edge are kept: the pane canvas clips them, which is
+      // more truthful than dropping a partially visible level.
+      if (yBot <= 0 || yTop >= H) continue;
+      const h = yBot - yTop;
+      if (h < 0.5) continue;
+      const len = Math.max(1, (b.q / maxQ) * maxLen);
+      const tot = b.buy + b.sell;
+      const imb = tot > 0 ? (b.buy - b.sell) / tot : 0;
+      ctx.fillStyle = imb >= 0 ? mixRgb(AMBER_RGB, GREEN_RGB, imb * 0.75)
+                               : mixRgb(AMBER_RGB, RED_RGB, -imb * 0.75);
+      ctx.globalAlpha = 0.5;
+      ctx.fillRect(right - len, yTop, len, Math.max(0.5, h - 0.5));
+    }
+    ctx.globalAlpha = 1;
+
+    // POC + realized price as dashed levels with a small right-aligned label
+    ctx.font = "10px 'Segoe UI', system-ui, sans-serif";
+    const level = (price, colour, text) => {
+      const y = candleSeries.priceToCoordinate(price);
+      if (y === null || y < 0 || y > H) return;
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(right, y + 0.5); ctx.stroke();
+      ctx.restore();
+      const tw = ctx.measureText(text).width;
+      ctx.fillStyle = "rgba(19, 23, 34, 0.85)";
+      ctx.fillRect(right - tw - 6, y - 12, tw + 6, 12);
+      ctx.fillStyle = colour;
+      ctx.fillText(text, right - tw - 3, y - 2.5);
+    };
+    level(d.poc, "#2962ff", `POC ${fmtNum(d.poc, 0)}`);
+    if (d.realized_price)
+      level(d.realized_price.value, AMBER, `realized ${fmtNum(d.realized_price.value, 0)}`);
+  });
+}
+const profilePrimitive = {
+  paneViews() {
+    return [{ zOrder: () => "bottom", renderer: () => ({ draw: drawProfile }) }];
+  },
+};
+candleSeries.attachPrimitive(profilePrimitive);
+/* v4 exposes no public invalidate() on a primitive; re-attaching definitely marks
+ * the pane dirty, so a window switch repaints without touching the series data. */
+function requestRedraw() {
+  candleSeries.detachPrimitive(profilePrimitive);
+  candleSeries.attachPrimitive(profilePrimitive);
+}
 
 /* ---------------- volume panel ---------------- */
 function barSourceValue(b) {
@@ -287,6 +424,7 @@ async function loadInterval() {
   renderVolume();
   renderMarkers();
   updateStatus();
+  await loadProfile();
   chart.timeScale().scrollToRealTime();
 }
 async function loadOlder() {
@@ -379,7 +517,7 @@ chart.subscribeCrosshairMove(param => {
   tooltip.innerHTML = `<h3>${fmtTs(openTime, S.interval)} · ${mkt}${b.cross_filled ? " · cross-filled" : ""}${b.follows_gap ? " · follows gap" : ""}${b.live ? " · ⚠" : ""}</h3>
     <div class="ohlc"><span>O ${fmtNum(b.open, 4)}</span><span>H <b style="color:${UP}">${fmtNum(b.high, 4)}</b></span>
     <span>L <b style="color:${DOWN}">${fmtNum(b.low, 4)}</b></span><span>C ${fmtNum(b.close, 4)}</span></div>
-    <table>${rows.join("")}</table>${liveNote}`;
+    <table>${rows.join("")}${profileTooltipRow(param.point.y)}</table>${liveNote}`;
   tooltip.style.display = "block";
   const pad = 14, tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
   let x = param.point.x + pad, y = param.point.y + pad;
@@ -406,7 +544,9 @@ function updateStatus() {
     ${live ? `<span>⚠ Live today <b>${live} bars</b> — price only (Binance API) · true volume expected with the next Vision publish (~24 h lag)</span>` : ""}
     <span id="status-source"></span>
     <span id="status-large"></span>
+    <span id="status-profile"></span>
     <span class="mkt-note">OHLC: spot → 2024-12-31, then futures UM → latest (refreshed before each session)</span>`;
+  updateProfileStatus();   // the span above was just replaced; refill it
 }
 
 /* ---------------- controls ---------------- */
@@ -460,6 +600,83 @@ function buildIntervalButtons() {
       S.interval = iv;
       wrap.querySelectorAll("button").forEach(x => x.classList.toggle("active", x.dataset.iv === iv));
       loadInterval();
+    });
+    wrap.appendChild(b);
+  }
+}
+
+/* ---------------- volume profile loading + controls ----------------
+ * Deliberately NOT driven by the visible time range: the profile is a summary of
+ * the selected window, so it must not be re-fetched or re-shaped as the user pans.
+ * (refreshBreakdown() is range-scoped with a 50% margin, which would be wrong for
+ * an All-window profile — so this takes the symbol/interval/window path instead.) */
+async function loadProfile() {
+  const key = S.symbol + "_" + S.profileWindow;
+  try {
+    let d = S.profileCache.get(key);
+    if (!d) {
+      d = await api(`/api/volume_profile?symbol=${S.symbol}&window=${S.profileWindow}`);
+      S.profileCache.set(key, d);
+    }
+    profileState.data = d;
+  } catch (e) {
+    profileState.data = null;
+    const el = document.getElementById("status-profile");
+    if (el) el.innerHTML = `<span class="mkt-note">Volume profile unavailable — ${e.message}</span>`;
+    requestRedraw();
+    return;
+  }
+  requestRedraw();
+  updateProfileStatus();
+}
+function updateProfileStatus() {
+  const el = document.getElementById("status-profile");
+  if (!el) return;
+  const d = profileState.data;
+  if (!d) return;
+  const va = d.value_area || {};
+  const rp = d.realized_price ? ` · <b>$${fmtNum(d.realized_price.value, 0)}</b> realized` : "";
+  const ur = d.urpd && d.urpd.buckets
+    ? ` · <span class="legend-urpd">on-chain cost basis</span> ${String(d.urpd.captured_utc).slice(0, 10)}`
+    : "";
+  el.innerHTML = `<span>Profile <b>${d.window}</b> (${d.n_days}d to ${d.as_of}) — `
+    + `bars: traded notional / $${fmtNum(d.bucket_usd, 0)} · `
+    + `POC <b>$${fmtNum(d.poc, 0)}</b> · value area <b>$${fmtNum(va.low, 0)}–$${fmtNum(va.high, 0)}</b>`
+    + rp + ur + `</span>`;
+}
+function profileTooltipRow(paneY) {
+  const d = profileState.data;
+  if (!d || !d.buckets || !d.buckets.length) return "";
+  const price = candleSeries.coordinateToPrice(paneY);
+  if (price === null || price === undefined || !isFinite(price)) return "";
+  const w = d.bucket_usd;
+  const b = d.buckets.find(x => Math.floor(x.p / w) === Math.floor(price / w));
+  if (!b) return `<tr><td class="k src-label">Volume profile <span class="src-meta">${d.window} · traded notional</span></td>`
+    + `<td class="v na">no volume at this price</td></tr>`;
+  const pct = d.total_quote_usd ? (b.q / d.total_quote_usd) * 100 : 0;
+  const tot = b.buy + b.sell;
+  const buyPct = tot > 0 ? (b.buy / tot) * 100 : 50;
+  const isPoc = Math.abs(b.p - d.poc) < w / 2;
+  return `<tr><td class="k src-label">Volume profile${isPoc ? " · POC" : ""}`
+    + `<br><span class="src-meta">$${fmtNum(b.p, 0)}–$${fmtNum(b.p + w, 0)} · ${d.window} · futures tape</span></td>`
+    + `<td class="v">${fmtUsd(b.q)}<br><span class="src-meta">${pct.toFixed(2)}% of window · `
+    + `${fmtNum(b.v)} ${d.base} · ${buyPct.toFixed(0)}% taker-buy</span></td></tr>`;
+}
+function buildProfileButtons() {
+  const wrap = document.getElementById("profile-window");
+  if (!wrap) return;
+  const windows = ["30d", "90d", "1y", "all"];
+  wrap.innerHTML = "";
+  for (const w of windows) {
+    const b = document.createElement("button");
+    b.textContent = w === "all" ? "All" : w;
+    b.dataset.pw = w;
+    if (w === S.profileWindow) b.classList.add("active");
+    b.addEventListener("click", () => {
+      S.profileWindow = w;
+      localStorage.setItem("vsa_profile_window", w);
+      wrap.querySelectorAll("button").forEach(x => x.classList.toggle("active", x.dataset.pw === w));
+      loadProfile();
     });
     wrap.appendChild(b);
   }
@@ -545,6 +762,7 @@ document.getElementById("holder-panel").addEventListener("toggle", () => {
     S.defaultInterval = sym.default_interval;
     buildIntervalButtons();
     document.getElementById("intervals").querySelector(`[data-iv="${S.interval}"]`)?.classList.add("active");
+    buildProfileButtons();
     populateSymbolSelect();
     await loadInterval();
     await loadHolder();
