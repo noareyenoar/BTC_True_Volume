@@ -1465,10 +1465,30 @@ function renderCostBasisMovers() {
  * the only writer of their pressed state, and a lookup that can come back empty
  * is a lit button that never goes out. */
 let cbButtons = [];
+/* The row's own explanation, captured in buildCostBasisButtons so the idle-state
+ * title can extend it rather than replace it. */
+let cbPairTitle = "";
 function syncCostBasisControls() {
   for (const b of cbButtons) b.classList.toggle("active", b.dataset.cw === S.cbWindow);
   const pair = document.getElementById("cb-custom");
-  if (pair) pair.classList.toggle("active", S.cbWindow === CB_CUSTOM);
+  const custom = S.cbWindow === CB_CUSTOM;
+  if (pair) {
+    pair.classList.toggle("active", custom);
+    /* An idle pair must not read as the window being drawn. The boxes hold the
+     * reader's dates while a preset is what the chart shows, and a row that looks
+     * the same either way leaves them comparing two different periods believing
+     * they picked one. */
+    pair.classList.toggle("idle", !custom);
+    pair.title = custom ? cbPairTitle
+      : `${cbPairTitle} — not applied: the chart is showing ${S.cbWindow}. `
+        + "Press Apply to switch to these dates.";
+  }
+  /* Written only while the boxes ARE the active control. A write on every sync
+   * would overwrite dates the reader had typed but not yet applied: clicking a
+   * preset to compare with them would silently restore the last APPLIED pair,
+   * and the next Apply would compute a window they never asked for. The stored
+   * pair is placed in the boxes once, at boot, by buildCostBasisButtons. */
+  if (!custom) return;
   const f = document.getElementById("cb-from"), t = document.getElementById("cb-to");
   if (f && S.cbCustom) f.value = S.cbCustom.from;
   if (t && S.cbCustom) t.value = S.cbCustom.to;
@@ -1533,6 +1553,16 @@ function buildCostBasisButtons() {
     const f = document.getElementById("cb-from"), t = document.getElementById("cb-to");
     if (f) { f.min = meta.first; f.max = meta.last; }
     if (t) { t.min = meta.first; t.max = meta.last; }
+  }
+  const pairEl = document.getElementById("cb-custom");
+  if (pairEl && !cbPairTitle) cbPairTitle = pairEl.title || "";
+  /* A returning reader finds their last pair in the boxes -- placed here, once,
+   * so that nothing writes into them again until they are the active window
+   * (see syncCostBasisControls). */
+  if (S.cbCustom) {
+    const f = document.getElementById("cb-from"), t = document.getElementById("cb-to");
+    if (f) f.value = S.cbCustom.from;
+    if (t) t.value = S.cbCustom.to;
   }
   syncCostBasisControls();
 }

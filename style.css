@@ -61,6 +61,12 @@ select, .btn-group button {
   border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px;
 }
 .datepair.active { border-color: var(--blue); }
+/* Idle: a preset is the window being drawn, so the pair sitting in the boxes is
+   a date the reader has kept, not a claim about the chart. Dashed and greyed for
+   that reason. Distinct from .dim, which the layer eye owns -- the two compose,
+   and .idle does not touch opacity so neither can cancel the other. */
+.datepair.idle { border-style: dashed; }
+.datepair.idle input[type="date"] { color: var(--muted); }
 .datepair .dp-arrow { color: var(--muted); font-size: 11px; }
 /* The native date input's calendar icon and field text are drawn by the OS in
    the OS's own colours, so on this dark theme they come out near-invisible until
