@@ -32,6 +32,19 @@
     <div class="profile-wrap">
       <span class="ctl-label">Cost-basis window</span>
       <div id="cb-window" class="btn-group" title="How far back the cost-basis change is measured — independent of the profile window above, because it answers a different question (on-chain supply that changed hands, not traded volume)"></div>
+      <!-- Any two dates, subtracted from the weekly dated-curve archive. Two
+           native date inputs rather than one calendar widget, because the
+           published page is read on a phone, where the OS picker is the one that
+           scrolls under a thumb. Apply validates locally (both dates, start
+           before end) and a pair outside the archive is answered by naming the
+           span, never by quietly showing a different window. `type="date"` needs
+           a value of exactly YYYY-MM-DD, which is also the API's own format. -->
+      <span id="cb-custom" class="datepair" title="Any window: pick two dates and subtract the archived supply curves for those dates">
+        <input id="cb-from" type="date" aria-label="Cost-basis window, start date">
+        <span class="dp-arrow">→</span>
+        <input id="cb-to" type="date" aria-label="Cost-basis window, end date">
+        <button id="cb-apply" type="button" title="Compute the change between these two dates">Apply</button>
+      </span>
       <button id="cb-eye" class="eye" type="button" aria-pressed="true">
         <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
           <path d="M1 8C3.2 4.2 5.5 2.6 8 2.6S12.8 4.2 15 8c-2.2 3.8-4.5 5.4-7 5.4S3.2 11.8 1 8Z"/>
@@ -99,9 +112,18 @@
   the <b>Who Moved</b> card below ranks the biggest sellers and buyers with the price they
   bought at, tagged <b>above</b>/<b>below</b> the price at the end of the window: a cohort
   spent <i>above</i> its own cost basis is realised profit, <i>below</i> is realised loss.<br>
+  The <b>date pair</b> beside the cost-basis window buttons asks for <b>any window at all</b>:
+  pick two dates and it subtracts the supply curves stored for them. Those curves come from a
+  <b>weekly archive</b> (checkonchain's own series API, one date a week since 2016), so each end
+  snaps to the nearest stored date within a few days and the status strip says which two dates
+  it actually answered with. The newest archive dates are still being restated upstream, so a
+  window ending within about a month of today is provisional; nothing before 2016-01-03 is
+  available at all. A pair is served on the archive's own $200 price grid, finer than the
+  published windows — which is why the <b>Who Moved</b> card still groups its rows into $1,000
+  zones, so one wall of owners is one row rather than ten fragments.<br>
   <span class="vintage-warn">Cost-basis and holder-cohort data comes from checkonchain's live
   charts and is current to the vintage stamped on each panel. The 14-day window is gone — the
-  publisher retired it. Every window is the publisher's own subtraction except
+  publisher retired it. Every <b>preset</b> window is the publisher's own subtraction except
   <b>4y</b>, which it never built: that one is computed here from two archived curves,
   and its earlier curve ends below today's price range, so the zones above that line read as
   accumulation since rather than a like-for-like pair (the status strip names the line). It is

@@ -50,8 +50,34 @@ select, .btn-group button {
 .eye.off { color: var(--muted); }
 .eye.off .slash { display: inline; }
 /* the window buttons keep working while the layer is hidden, so dim them rather
-   than disable: the choice is kept for when the layer comes back */
-.btn-group.dim { opacity: 0.45; }
+   than disable: the choice is kept for when the layer comes back. #cb-custom is
+   the same control's other half and dims with them (see buildLayerEyes). */
+.btn-group.dim, .datepair.dim { opacity: 0.45; }
+/* Any-window date pair: the third control on the cost-basis row, next to the
+   presets it is an alternative to. Outlined like a button group so it reads as
+   part of the same control row, and lit when it is the active choice. */
+.datepair {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px;
+}
+.datepair.active { border-color: var(--blue); }
+.datepair .dp-arrow { color: var(--muted); font-size: 11px; }
+/* The native date input's calendar icon and field text are drawn by the OS in
+   the OS's own colours, so on this dark theme they come out near-invisible until
+   the browser is told the widget is dark. `color-scheme: dark` is the one hint
+   every current browser honours; the explicit background/colour are the fallback
+   for the text box itself. */
+.datepair input[type="date"] {
+  background: var(--bg); color: var(--text); color-scheme: dark;
+  border: 1px solid var(--border); border-radius: 3px;
+  padding: 3px 5px; font: inherit; font-size: 11px;
+}
+.datepair input[type="date"]:focus { outline: none; border-color: var(--blue); }
+.datepair button {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 3px; padding: 3px 7px; font-size: 11px; cursor: pointer;
+}
+.datepair button:hover { border-color: var(--blue); }
 .legend-tape { color: var(--amber); }
 .legend-urpd { color: var(--purple); }
 .legend-cb { color: var(--text); }

@@ -18,6 +18,32 @@ const UP = "#26a69a", DOWN = "#ef5350", MUTED = "#787b86", AMBER = "#f59e0b", PU
 // render the unavailable state.
 const CB_WINDOWS = ["30d", "90d", "180d", "365d", "4y"];
 const CB_DEFAULT = "30d";
+// A window of the reader's own choosing: two arbitrary dates, subtracted from
+// the weekly dated-curve archive. Not a button in CB_WINDOWS, because it is a
+// state the date inputs put the control into rather than one more preset.
+const CB_CUSTOM = "custom";
+// The archive's own grid, in USD. Its pairs are served at this width, NOT at the
+// mixed-store CB_ZONE_USD below: both ends come from the same $200 store, and a
+// $200 grid is what makes a fortnight-wide window readable.
+const CB_ARCHIVE_ZONE_USD = 200;
+// Who Moved still groups into $1,000 levels whatever the payload's grid is: one
+// cohort of owners is spread across ~10 adjacent $200 buckets, so ranking raw
+// buckets shatters a single wall into fragments that each look small. A finer
+// payload must not fragment the table.
+const CB_ZONE_MIN_USD = 1000;
+const CB_ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function cbCustomFromStorage() {
+  try {
+    const c = JSON.parse(localStorage.getItem("vsa_cb_custom_v1") || "null");
+    if (c && CB_ISO_RE.test(c.from) && CB_ISO_RE.test(c.to) && c.from < c.to) return c;
+  } catch (e) { /* unreadable -> no remembered pair */ }
+  return null;
+}
+// Read once, here, because the two must agree: "custom" is only a valid window
+// if there is a remembered date pair to ask for.
+const CB_SAVED_PAIR = cbCustomFromStorage();
+const CB_SAVED_WINDOW = localStorage.getItem("vsa_cb_window_v2");
 
 const S = {
   // On entry the chart opens on daily bars -- see boot(), which adopts the
@@ -34,9 +60,14 @@ const S = {
   // The cost-basis window is INDEPENDENT of the profile window: they measure
   // different things (traded notional vs supply that changed hands), so forcing
   // one control to drive both would silently couple two unrelated questions.
-  cbWindow: CB_WINDOWS.includes(localStorage.getItem("vsa_cb_window_v2"))
-    ? localStorage.getItem("vsa_cb_window_v2") : CB_DEFAULT,
+  // "custom" is accepted only with a remembered pair to go with it -- a bare
+  // "custom" would ask the API for two dates it was never given.
+  cbCustom: CB_SAVED_PAIR,
+  cbWindow: (CB_SAVED_WINDOW === CB_CUSTOM && CB_SAVED_PAIR)
+    ? CB_CUSTOM
+    : (CB_WINDOWS.includes(CB_SAVED_WINDOW) ? CB_SAVED_WINDOW : CB_DEFAULT),
   cbCache: new Map(),
+  cbArchive: null,
   // status-bar text that only the volume/marker renderers can compute. Held here,
   // not written straight to the DOM: updateStatus() rebuilds the bar wholesale,
   // so a span written before that rebuild is written into nothing. See
@@ -177,6 +208,10 @@ async function api(path) {
     return loadJSONFile(pf[sym + "_" + (q.window || "90d")]);
   }
   if (what === "cost_basis") {
+    // A window of the reader's own choosing has no precomputed file to read --
+    // there are infinitely many date pairs. The archive ships whole instead and
+    // the pair is subtracted here (see cbPairFromArchive).
+    if (q.window === CB_CUSTOM) return cbPairFromArchive(sym, q.from, q.to);
     const cbf = STATIC.files.cost_basis;
     if (!cbf) throw new Error("this export has no cost-basis overlay — re-publish the site");
     return loadJSONFile(cbf[sym + "_" + (q.window || CB_DEFAULT)]);
@@ -911,11 +946,14 @@ function buildProfileButtons() {
  * those annotate the distribution and would otherwise be a claim with nothing
  * behind it. */
 function buildLayerEyes() {
+  // `groups`, not `group`: the cost-basis layer is driven by two controls now --
+  // the preset buttons and the custom date pair -- and an eye that dimmed only
+  // one of them would leave the other looking active over a hidden layer.
   const eyes = [
-    { id: "profile-eye", name: "profile", group: "profile-window",
+    { id: "profile-eye", name: "profile", groups: ["profile-window"],
       label: "right-edge volume profile", state: profileState,
       refresh: () => requestRedraw() },
-    { id: "cb-eye", name: "costbasis", group: "cb-window",
+    { id: "cb-eye", name: "costbasis", groups: ["cb-window", "cb-custom"],
       label: "cost-basis distribution", state: costBasisState,
       refresh: () => { applyCostBasisPriceLines(); requestRedraw(); } },
   ];
@@ -927,7 +965,9 @@ function buildLayerEyes() {
       btn.classList.toggle("off", !on);
       btn.setAttribute("aria-pressed", String(on));
       btn.title = (on ? "Hide" : "Show") + " the " + e.label;
-      document.getElementById(e.group)?.classList.toggle("dim", !on);
+      for (const g of e.groups) {
+        document.getElementById(g)?.classList.toggle("dim", !on);
+      }
     };
     btn.addEventListener("click", () => {
       e.state.visible = !e.state.visible;
@@ -971,12 +1011,233 @@ function buildMarkerToggles() {
  * from on-chain supply, not "where did volume trade" from the futures tape, and
  * the two windows are legitimately different questions.
  * BTC-only — URPD needs per-UTXO data, so ETH returns the honest unavailable. */
+
+/* A window of the reader's own choosing, computed in the browser.
+ *
+ * The server subtracts two dated curves out of urpd_archive.parquet; a published
+ * site has no server, so the archive itself ships with the page and the pair is
+ * subtracted here. This is a literal port of app.py's _cb_archive_pair and the
+ * archive-pair branch of _cb_payload — same snap rule, same per-row summation
+ * ORDER, same provenance sentence — and the probe diffs this payload against the
+ * live one field-for-field precisely so the two cannot drift apart.
+ *
+ * Not one line of this runs unless the reader asks for a custom window: the
+ * artifact is ~1 MB and decoding it on every visit would be a cost with no
+ * question attached to it. */
+const CB_ARCHIVE_SOURCE = "checkonchain_bitview_series_api";
+const CB_ARCHIVE_CADENCE_DAYS = 7;
+// A requested date may sit this far outside the archive and still snap to its
+// nearest anchor; further out is a different question, not a date we happen to
+// lack. Same value as app.CB_SNAP_TOLERANCE_DAYS.
+const CB_SNAP_TOLERANCE_DAYS = 4;
+// What an unavailable cost-basis answer looks like, field for field the same as
+// the API's `empty` body.
+const CB_EMPTY = {
+  available: false, as_of: null, data_vintage: null, delta: [], past: null,
+  current: null, price_usd: null, price_usd_prev: null,
+  excluded_zero_price_btc: null,
+};
+
+/* UTC midnight of an ISO date. Parsed by hand, never with new Date("YYYY-MM-DD"):
+ * that form is UTC by spec, but the arithmetic here has to be whole days, and a
+ * local-time parse would silently shift it by one on the wrong side of midnight. */
+function cbUtcMs(iso) {
+  return Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+}
+function cbDaysBetween(aIso, bIso) {
+  return Math.round((cbUtcMs(aIso) - cbUtcMs(bIso)) / 86400000);
+}
+function cbAddDays(iso, n) {
+  return new Date(cbUtcMs(iso) + n * 86400000).toISOString().slice(0, 10);
+}
+/* Nearest archived date to `target`, ties going to the EARLIER date.
+ * app._archive_snap is the other half of this rule: bisect to the insertion
+ * point, compare the two neighbours, break ties by date. If the two ever
+ * disagreed, the same window would read differently depending on whether the
+ * server or the shipped copy answered it. */
+function cbNearestDate(days, target) {
+  let lo = 0, hi = days.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (days[m] < target) lo = m + 1; else hi = m; }
+  const cands = days.slice(Math.max(0, lo - 1), lo + 1);
+  if (!cands.length) return null;
+  let best = cands[0];
+  for (const d of cands) {
+    const a = Math.abs(cbDaysBetween(d, target)), b = Math.abs(cbDaysBetween(best, target));
+    if (a < b || (a === b && d < best)) best = d;
+  }
+  return best;
+}
+/* The archive is stored as one flat centi-BTC array per date, each date owning
+ * `counts[i]` consecutive slots from $0 (see export_static_site._export_cb_archive).
+ * Offsets are built once so a lookup is a slice, not a scan. */
+function cbArchiveOffsets(ar) {
+  if (ar.offsets) return ar.offsets;
+  const off = new Array(ar.counts.length);
+  let run = 0;
+  for (let i = 0; i < ar.counts.length; i++) { off[i] = run; run += ar.counts[i]; }
+  ar.offsets = off;
+  return off;
+}
+async function cbLoadArchive(sym) {
+  if (S.cbArchive) return S.cbArchive;
+  const meta = (STATIC.cost_basis_archive || {})[sym];
+  if (!meta) throw new Error("this export ships no dated-curve archive — re-publish the site");
+  const ar = await loadJSONFile(meta.path);
+  // grid_from_usd must be 0: every price in the payload is derived as
+  // index * bucket_usd, so a grid that started anywhere else would put every bar
+  // on the wrong level without a single value looking wrong.
+  if (!ar || !ar.dates || !ar.counts || !ar.supply
+      || ar.counts.length !== ar.dates.length || ar.grid_from_usd !== 0
+      || !(ar.bucket_usd > 0)) {
+    throw new Error("the shipped dated-curve archive is unreadable — re-publish the site");
+  }
+  S.cbArchive = ar;
+  return ar;
+}
+/* The provenance sentence, in the API's own words. Duplicated rather than
+ * dropped: the static page must not describe a differently-computed number, and
+ * the probe compares this whole payload to the live one. */
+function cbArchiveNote(prev, asOf, reqFrom, reqTo, coversTo) {
+  const provenance = "COMPUTED LOCALLY from two dated curves in the weekly archive "
+    + `(${prev} minus ${asOf}), on the archive's own ${fmtPx(CB_ARCHIVE_ZONE_USD)} grid: `
+    + "the publisher never built this window. The archive holds one date per week, "
+    + "so each end snapped to its nearest stored date"
+    + ` — asked ${reqFrom} → ${reqTo}.`
+    + (coversTo
+        ? ` The ${prev} curve covers only to ${fmtPx(coversTo)}, so every zone above `
+          + "that line is supply that arrived since, not a like-for-like pair."
+        : " ")
+    + ` The newest archive dates are still being restated upstream, so a window `
+    + `ending at ${asOf} is provisional. `;
+  return `Change in supply by acquisition price, ${prev} to ${asOf}. `
+    + "Green = coins whose cost basis is here grew (accumulation); red = that "
+    + "cohort was spent/moved (distribution). Coins leaving a bucket at a price "
+    + "above their cost basis is realised profit, below it is realised loss. "
+    + "cum_acc/cum_dist are cumulative shares measured UP the price axis (large "
+    + "at the top of the range), not per bucket. " + provenance
+    + `DATA VINTAGE ${asOf} — a dated measurement, not a live tape.`;
+}
+async function cbPairFromArchive(sym, reqFrom, reqTo) {
+  const out = { ...CB_EMPTY, symbol: sym, window: CB_CUSTOM };
+  if (!CB_ISO_RE.test(String(reqFrom || "")) || !CB_ISO_RE.test(String(reqTo || "")))
+    throw new Error("window=custom needs both from=YYYY-MM-DD and to=YYYY-MM-DD");
+  if (reqFrom >= reqTo)
+    throw new Error(`from (${reqFrom}) must be earlier than to (${reqTo})`);
+  // BTC-only, and the manifest says so by carrying an archive keyed by symbol:
+  // URPD buckets supply by the price each UTXO last moved at, so no ETH
+  // equivalent exists. The API's own words, not a paraphrase.
+  if (!(STATIC.cost_basis_archive || {})[sym])
+    return { ...out, note: "URPD buckets supply by the price each UTXO last moved "
+      + "at, so it is a BTC-UTXO concept — no ETH equivalent exists." };
+  const ar = await cbLoadArchive(sym);
+  const days = ar.dates;
+  const first = days[0], last = days[days.length - 1];
+  const archive = { first: first, last: last, n_dates: days.length,
+                    bucket_usd: ar.bucket_usd, cadence_days: ar.cadence_days };
+  const refuse = (label, d) => ({ ...out, requested_from: reqFrom, requested_to: reqTo,
+    archive: archive, note: `${label} ${d} is outside the archive, which holds one `
+      + `date a week from ${first} to ${last}` });
+  // ISO dates compare as strings, and so does the API's own bounds test
+  const lo = cbAddDays(first, -CB_SNAP_TOLERANCE_DAYS);
+  const hi = cbAddDays(last, CB_SNAP_TOLERANCE_DAYS);
+  if (reqFrom < lo || reqFrom > hi) return refuse("from", reqFrom);
+  if (reqTo < lo || reqTo > hi) return refuse("to", reqTo);
+  const prev = cbNearestDate(days, reqFrom), cur = cbNearestDate(days, reqTo);
+  const fromSnapped = prev !== reqFrom, toSnapped = cur !== reqTo;
+  const asked = cbDaysBetween(reqTo, reqFrom);
+  if (!prev || !cur || prev >= cur) {
+    return { ...out, requested_from: reqFrom, requested_to: reqTo, archive: archive,
+      note: `the archive holds one date a week and ${reqFrom} → ${reqTo} resolves `
+        + `to a single anchor (${prev}) — pick a window at least a week wide` };
+  }
+
+  const off = cbArchiveOffsets(ar);
+  const pi = days.indexOf(prev), ci = days.indexOf(cur);
+  const nPast = ar.counts[pi], nNow = ar.counts[ci];
+  const n = Math.max(nPast, nNow);         // the union of two grids from $0, step 200
+  const past = new Array(n).fill(0), now = new Array(n).fill(0);
+  for (let i = 0; i < nPast; i++) past[i] = ar.supply[off[pi] + i] / 100;
+  for (let i = 0; i < nNow; i++) now[i] = ar.supply[off[ci] + i] / 100;
+  const delta = new Array(n);
+  const pos = new Array(n), neg = new Array(n);
+  let posSum = 0, negSum = 0, net = 0;
+  for (let i = 0; i < n; i++) {
+    const d = now[i] - past[i];
+    delta[i] = d;
+    pos[i] = d > 0 ? d : 0;
+    neg[i] = d < 0 ? -d : 0;
+    posSum += pos[i]; negSum += neg[i];
+    if (i > 0) net += d;                  // the $0 bucket is held out of net (see below)
+  }
+  const cumAcc = new Array(n), cumDist = new Array(n);
+  let aRun = 0, dRun = 0;
+  for (let i = 0; i < n; i++) {
+    aRun += pos[i]; dRun += neg[i];
+    cumAcc[i] = posSum ? aRun / posSum : 0;
+    cumDist[i] = negSum ? dRun / negSum : 0;
+  }
+  // The grid is built from the archive's own bucket width, so the payload reports
+  // that width -- which is what app._cb_payload measures back out of the frame's
+  // price column (the smallest positive step of a dense $200 lattice is $200).
+  const bucketUsd = ar.bucket_usd;
+  // highest price at which the EARLIER curve still holds supply: above it the
+  // change is supply that arrived since, not a like-for-like pair
+  let coversTo = null;
+  for (let i = n - 1; i >= 0; i--) if (past[i] > 0) { coversTo = i * ar.bucket_usd; break; }
+  // the $0 bucket has no meaningful price: held out of the bars, reported against
+  // excluded_zero_price_btc, and excluded from the net
+  const row = i => ({ p: i * ar.bucket_usd, d: delta[i], past: past[i], now: now[i],
+                      cum_acc: cumAcc[i], cum_dist: cumDist[i] });
+  const body = [], pcurve = [], ccurve = [];
+  for (let i = 1; i < n; i++) {         // index 0 is the $0 bucket: no meaningful price
+    body.push(row(i));
+    pcurve.push({ p: i * ar.bucket_usd, s: past[i] });
+    ccurve.push({ p: i * ar.bucket_usd, s: now[i] });
+  }
+  const as_of = cur, prev_as_of = prev;
+  return {
+    symbol: sym, window: CB_CUSTOM, available: true,
+    as_of: as_of, prev_as_of: prev_as_of, data_vintage: as_of,
+    source: CB_ARCHIVE_SOURCE, units: "BTC", bucket_usd: bucketUsd,
+    span_days: cbDaysBetween(as_of, prev_as_of),
+    delta: body,
+    past: { date: prev_as_of, buckets: pcurve },
+    current: { date: as_of, buckets: ccurve },
+    price_usd: ar.price_usd ? ar.price_usd[ci] : null,
+    price_usd_prev: ar.price_usd ? ar.price_usd[pi] : null,
+    net_delta_btc: net,
+    excluded_zero_price_btc: { supply_btc: now[0], delta_btc: delta[0] },
+    prev_curve_covers_to_usd: coversTo,
+    computed: true,
+    note: cbArchiveNote(prev_as_of, as_of, reqFrom, reqTo, coversTo),
+    requested_from: reqFrom, requested_to: reqTo, requested_span_days: asked,
+    from_snapped: fromSnapped, to_snapped: toSnapped,
+    estimate_kind: "archive-pair", window_label: `${prev_as_of} → ${as_of}`,
+    archive: archive,
+  };
+}
+
+/* One place that builds the request path, and one that builds the cache key.
+ * A custom window's identity is its date PAIR, not the word "custom" — keyed by
+ * the word alone, the second pair asked for would be served the first one's
+ * numbers straight out of the cache. */
+function cbApiPath() {
+  const base = `/api/cost_basis?symbol=${S.symbol}&window=${S.cbWindow}`;
+  return (S.cbWindow === CB_CUSTOM && S.cbCustom)
+    ? `${base}&from=${S.cbCustom.from}&to=${S.cbCustom.to}` : base;
+}
+function cbCacheKey() {
+  const pair = (S.cbWindow === CB_CUSTOM && S.cbCustom)
+    ? `${CB_CUSTOM}_${S.cbCustom.from}_${S.cbCustom.to}` : S.cbWindow;
+  return S.symbol + "_" + pair;
+}
+
 async function loadCostBasis() {
-  const key = S.symbol + "_" + S.cbWindow;
+  const key = cbCacheKey();
   try {
     let d = S.cbCache.get(key);
     if (!d) {
-      d = await api(`/api/cost_basis?symbol=${S.symbol}&window=${S.cbWindow}`);
+      d = await api(cbApiPath());
       S.cbCache.set(key, d);
     }
     costBasisState.data = d;
@@ -995,6 +1256,17 @@ async function loadCostBasis() {
   updateCostBasisStatus();
   renderCostBasisMovers();
   applyCostBasisPriceLines();
+}
+/* What to call this window in prose. A preset window is its own name. A custom
+ * one is the two dates the reader PICKED, because that is the question they
+ * asked -- the dates the archive actually answered with are printed immediately
+ * beside it, and again in the snap note when the two differ. Using the resolved
+ * pair as the label instead would put the same two dates on screen twice and
+ * hide which window was requested. */
+function cbWindowLabel(d) {
+  return d.requested_from
+    ? `${d.requested_from} → ${d.requested_to}`
+    : (d.window_label || d.window);
 }
 function updateCostBasisStatus() {
   const el = document.getElementById("status-cb");
@@ -1019,10 +1291,16 @@ function updateCostBasisStatus() {
       + `${d.prev_as_of} curve ends at ${fmtPx(d.prev_curve_covers_to_usd)}, so `
       + `every zone above that is accumulation since — not a like-for-like pair</span>`
     : "";
-  el.innerHTML = `<span>Cost basis <b>${d.window}</b> `
+  // The archive holds one date a week, so the ends a reader picks are almost
+  // never dates it holds. Which dates it actually answered with is not a
+  // footnote here: every number below is a measurement at those two dates.
+  const snap = (d.from_snapped || d.to_snapped)
+    ? ` · <span class="mkt-note">the weekly archive stores one date a week, so these `
+      + `are the two stored dates nearest what was asked for</span>` : "";
+  el.innerHTML = `<span>Cost basis <b>${cbWindowLabel(d)}</b> `
     + `(${d.prev_as_of} → ${d.as_of}, ${d.span_days}d) — `
     + `<span class="legend-cb">hollow = supply then, filled = supply now, cap = the change</span> · `
-    + `<b>${net >= 0 ? "+" : ""}${fmtNum(net)} BTC</b> ${dir}${px}${cover} · `
+    + `<b>${net >= 0 ? "+" : ""}${fmtNum(net)} BTC</b> ${dir}${px}${cover}${snap} · `
     + `<span class="mkt-note">on-chain supply, data to ${d.data_vintage} — a dated `
     + `measurement, not the live tape</span></span>`;
 }
@@ -1041,7 +1319,7 @@ function costBasisTooltipRow(paneY) {
   const price = candleSeries.coordinateToPrice(paneY);
   if (price === null || price === undefined || !isFinite(price)) return "";
   const lbl = `<tr><td class="k src-label">Cost basis <span class="src-meta">`
-    + `${d.window} · on-chain URPD · to ${d.data_vintage}</span></td>`;
+    + `${cbWindowLabel(d)} · on-chain URPD · to ${d.data_vintage}</span></td>`;
   const x = rows.find(v => Math.floor(v.p / w) === Math.floor(price / w));
   if (!x) return lbl + `<td class="v na">no supply bucket at this price</td></tr>`;
   const acc = x.d > 0;
@@ -1061,14 +1339,25 @@ function costBasisTooltipRow(paneY) {
  *
  * Every consumer reads through this one function so the price line on the chart
  * and the row in the table can never disagree about which level is the biggest
- * seller. */
-const CB_ZONE_USD = 1000;
+ * seller.
+ *
+ * The width is the payload's own bucket_usd FLOORED at $1,000 (see
+ * CB_ZONE_MIN_USD): a custom pair is served on the archive's finer $200 grid, and
+ * ranking those raw buckets would shatter one wall into ten rows that each look
+ * small -- the exact failure zoning exists to prevent. The chart bars still get
+ * the finer grid and their own zoom-adaptive regrid; only this ranking is coarse. */
+function cbZoneWidth() {
+  const d = costBasisState.data;
+  const w = (d && d.bucket_usd) || 0;
+  return Math.max(CB_ZONE_MIN_USD, w);
+}
 function cbZones() {
   const d = costBasisState.data;
   if (!d || !d.available || !d.delta || !d.delta.length) return null;
+  const W = cbZoneWidth();
   const zones = new Map();
   for (const r of d.delta) {
-    const z = Math.floor(r.p / CB_ZONE_USD) * CB_ZONE_USD;
+    const z = Math.floor(r.p / W) * W;
     let g = zones.get(z);
     if (!g) { g = { p: z, d: 0, past: 0, now: 0 }; zones.set(z, g); }
     g.d += r.d || 0; g.past += r.past || 0; g.now += r.now || 0;
@@ -1150,13 +1439,13 @@ function renderCostBasisMovers() {
       <span class="amt ${z.d > 0 ? "cb-acc" : "cb-dist"}">${z.d > 0 ? "+" : ""}${fmtNum(z.d)}</span>
       <span class="pct">${pct}</span>${side(z)}</div>`;
   };
-  box.innerHTML = `<div class="holder-card"><h3>Who Moved — ${d.window} change</h3>
+  box.innerHTML = `<div class="holder-card"><h3>Who Moved — ${cbWindowLabel(d)} change</h3>
     <div class="mover-head">${d.prev_as_of} → ${d.as_of}${
       px === null || px === undefined ? "" : ` · price ${fmtPx(px)}`}</div>
     <div class="mover-group">SOLD OFF — cohorts that shrank</div>${sellers.map(row).join("")}
     <div class="mover-group">BOUGHT IN — cohorts that grew</div>${buyers.map(row).join("")}
     <div class="holder-note">
-      Each row is a ${fmtPx(CB_ZONE_USD)} price zone: BTC of supply that
+      Each row is a ${fmtPx(cbZoneWidth())} price zone: BTC of supply that
       changed hands, and the share of what sat there before. <b>above</b> = that
       cohort's cost basis is higher than the price at the end of the window, so
       spending there realises a <span class="cb-dist">loss</span>;
@@ -1168,12 +1457,50 @@ function renderCostBasisMovers() {
     <div class="vintage">checkonchain, data to ${d.as_of}</div></div>`;
 }
 
+/* The preset buttons and the custom date pair are ONE control: choosing either
+ * deactivates the other, because they answer the same question ("how far back?")
+ * and two things lit at once would say the chart is showing both.
+ *
+ * The buttons are held in a list rather than re-queried from the DOM: this is
+ * the only writer of their pressed state, and a lookup that can come back empty
+ * is a lit button that never goes out. */
+let cbButtons = [];
+function syncCostBasisControls() {
+  for (const b of cbButtons) b.classList.toggle("active", b.dataset.cw === S.cbWindow);
+  const pair = document.getElementById("cb-custom");
+  if (pair) pair.classList.toggle("active", S.cbWindow === CB_CUSTOM);
+  const f = document.getElementById("cb-from"), t = document.getElementById("cb-to");
+  if (f && S.cbCustom) f.value = S.cbCustom.from;
+  if (t && S.cbCustom) t.value = S.cbCustom.to;
+}
+function cbStatusNote(msg) {
+  const el = document.getElementById("status-cb");
+  if (el) el.innerHTML = `<span class="mkt-note">${msg}</span>`;
+}
+/* Apply validates locally and says what is wrong in the strip rather than
+ * sending a request that can only come back as the same complaint. */
+function applyCustomCostBasis() {
+  const f = document.getElementById("cb-from"), t = document.getElementById("cb-to");
+  const from = f ? f.value : "", to = t ? t.value : "";
+  if (!CB_ISO_RE.test(from) || !CB_ISO_RE.test(to)) {
+    return cbStatusNote("Custom window needs both a start and an end date — pick both, then Apply.");
+  }
+  if (from >= to) {
+    return cbStatusNote(`Custom window: the start date (${from}) must be earlier than the end date (${to}).`);
+  }
+  S.cbCustom = { from: from, to: to };
+  localStorage.setItem("vsa_cb_custom_v1", JSON.stringify(S.cbCustom));
+  S.cbWindow = CB_CUSTOM;
+  localStorage.setItem("vsa_cb_window_v2", CB_CUSTOM);
+  syncCostBasisControls();
+  loadCostBasis();
+}
 function buildCostBasisButtons() {
   const wrap = document.getElementById("cb-window");
   if (!wrap) return;
-  const windows = CB_WINDOWS;
   wrap.innerHTML = "";
-  for (const w of windows) {
+  cbButtons = [];
+  for (const w of CB_WINDOWS) {
     const b = document.createElement("button");
     b.textContent = w;
     b.dataset.cw = w;
@@ -1181,11 +1508,33 @@ function buildCostBasisButtons() {
     b.addEventListener("click", () => {
       S.cbWindow = w;
       localStorage.setItem("vsa_cb_window_v2", w);
-      wrap.querySelectorAll("button").forEach(x => x.classList.toggle("active", x.dataset.cw === w));
+      syncCostBasisControls();
       loadCostBasis();
     });
     wrap.appendChild(b);
+    cbButtons.push(b);
   }
+  const apply = document.getElementById("cb-apply");
+  if (apply) apply.addEventListener("click", applyCustomCostBasis);
+  for (const id of ["cb-from", "cb-to"]) {
+    const el = document.getElementById(id);
+    // Enter in a date field is the obvious way to commit it; without this the
+    // form-less input just does nothing and the reader thinks it is broken.
+    if (el) el.addEventListener("keydown", ev => {
+      if (ev.key === "Enter") { ev.preventDefault(); applyCustomCostBasis(); }
+    });
+  }
+  // Bounds on the pickers, where the archive's span is known before any request:
+  // in static mode the manifest carries it. Live mode leaves the pickers open --
+  // the archive is the server's, and an out-of-range date comes back naming the
+  // span rather than being silently unclickable.
+  const meta = (STATIC && STATIC.cost_basis_archive || {})[S.symbol];
+  if (meta) {
+    const f = document.getElementById("cb-from"), t = document.getElementById("cb-to");
+    if (f) { f.min = meta.first; f.max = meta.last; }
+    if (t) { t.min = meta.first; t.max = meta.last; }
+  }
+  syncCostBasisControls();
 }
 let visibleTimer = null;
 chart.timeScale().subscribeVisibleTimeRangeChange(r => {
