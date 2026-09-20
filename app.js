@@ -22,6 +22,11 @@ const S = {
   // one control to drive both would silently couple two unrelated questions.
   cbWindow: localStorage.getItem("vsa_cb_window") || "90d",
   cbCache: new Map(),
+  // status-bar text that only the volume/marker renderers can compute. Held here,
+  // not written straight to the DOM: updateStatus() rebuilds the bar wholesale,
+  // so a span written before that rebuild is written into nothing. See
+  // updateSourceStatus().
+  statusSource: "", statusLarge: "",
 };
 
 /* ---------------- helpers ---------------- */
@@ -509,8 +514,9 @@ function renderVolume() {
   if (!single) {
     chart.priceScale("").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
   }
-  document.getElementById("status-source").textContent =
-    sourceLabel(S.source) + (data.length && data.every(d => d.value === null) ? " (no data in loaded range)" : "");
+  S.statusSource = sourceLabel(S.source) +
+    (data.length && data.every(d => d.value === null) ? " (no data in loaded range)" : "");
+  updateSourceStatus();
 }
 
 function sourceLabel(key) {
@@ -530,6 +536,7 @@ function renderMarkers() {
   // large-trade markers: top-decile days of large_trade_notional within loaded data
   const vals = [...S.breakdown.values()].map(bd => bd.large_trade_notional)
     .filter(v => v !== null && v !== undefined && !isNaN(v) && v > 0).sort((a, b) => a - b);
+  S.statusLarge = "";                    // too few bars -> no threshold, no note
   if (vals.length >= 20) {
     const thresh = vals[Math.floor(vals.length * 0.90)];
     for (const b of S.bars) {
@@ -540,9 +547,9 @@ function renderMarkers() {
           shape: "arrowUp", text: "large" });
       }
     }
-    document.getElementById("status-large").textContent =
-      "large-trade marker: >" + fmtUsd(thresh) + " (top decile of loaded range)";
+    S.statusLarge = "large-trade marker: >" + fmtUsd(thresh) + " (top decile of loaded range)";
   }
+  updateLargeStatus();
   candleSeries.setMarkers(markers);
 }
 
@@ -689,6 +696,22 @@ function updateStatus() {
     <span class="mkt-note">OHLC: spot → 2024-12-31, then futures UM → latest (refreshed before each session)</span>`;
   updateProfileStatus();   // the spans above were just replaced; refill them
   updateCostBasisStatus();
+  updateSourceStatus();
+  updateLargeStatus();
+}
+
+/* The four spans above exist only inside the markup updateStatus() just wrote,
+ * and the two renderers that know these two strings run BEFORE it in every load
+ * path. So the text is kept in S and painted from here rather than written
+ * straight into a span that may not exist yet — which is exactly what aborted
+ * boot with "Cannot set properties of null (setting 'textContent')". */
+function updateSourceStatus() {
+  const el = document.getElementById("status-source");
+  if (el) el.textContent = S.statusSource;
+}
+function updateLargeStatus() {
+  const el = document.getElementById("status-large");
+  if (el) el.textContent = S.statusLarge;
 }
 
 /* ---------------- controls ---------------- */
