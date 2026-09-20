@@ -31,6 +31,27 @@ select, .btn-group button {
 .source-note { font-size: 11px; color: var(--muted); max-width: 640px; }
 .profile-wrap { display: flex; align-items: center; gap: 6px; }
 .ctl-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+/* Eye toggle beside each window control. Two icons in one SVG: the eye is always
+   drawn, the slash is revealed by `.off`, so the struck-through state needs no
+   second asset and cannot drift out of sync with the eye. Colour carries the
+   state too (full-strength = layer shown, muted = hidden) for anyone who cannot
+   make out the slash at 16px. */
+.eye {
+  background: none; border: 1px solid transparent; border-radius: 4px;
+  padding: 2px; cursor: pointer; color: var(--text); line-height: 0;
+}
+.eye:hover { border-color: var(--border); }
+.eye svg { width: 16px; height: 16px; display: block; }
+.eye svg path, .eye svg circle, .eye svg line {
+  fill: none; stroke: currentColor; stroke-width: 1.4;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.eye .slash { display: none; }
+.eye.off { color: var(--muted); }
+.eye.off .slash { display: inline; }
+/* the window buttons keep working while the layer is hidden, so dim them rather
+   than disable: the choice is kept for when the layer comes back */
+.btn-group.dim { opacity: 0.45; }
 .legend-tape { color: var(--amber); }
 .legend-urpd { color: var(--purple); }
 .legend-cb { color: var(--text); }

@@ -230,14 +230,22 @@ let takerBuySeries = null, takerSellSeries = null;
  * time never changes which price levels are drawn, so this deliberately does not
  * hook the refreshBreakdown() visible-range path (which is range-scoped and would
  * mangle an "all" window). */
-const profileState = { data: null };
+/* `visible` is the eye toggle beside each window control. Both default to on and
+ * are remembered, like the source and window choices — a hidden layer is a
+ * preference about the chart, not a transient hover state. Stored as "0"/"1" so
+ * "absent" (first visit) reads as visible rather than false. */
+const LAYER_VISIBLE_KEY = "vsa_layer_visible";
+function layerVisible(name) {
+  return localStorage.getItem(LAYER_VISIBLE_KEY + "_" + name) !== "0";
+}
+const profileState = { data: null, visible: layerVisible("profile") };
 /* Cost basis (on-chain URPD): supply bucketed by the price each coin last moved
  * at — i.e. what its owner paid — and how those buckets changed between two
  * stamped dates. Same primitive as the profile (one canvas, one repaint path);
  * only the anchor differs. */
 /* `drawn` caches the regridded bars the last paint actually drew, so the tooltip
  * names the same price band the user is pointing at (see drawProfile). */
-const costBasisState = { data: null, drawn: null };
+const costBasisState = { data: null, drawn: null, visible: layerVisible("costbasis") };
 const AMBER_RGB = [245, 158, 11], GREEN_RGB = [38, 166, 154], RED_RGB = [239, 83, 80];
 function mixRgb(a, b, t) {
   t = Math.max(0, Math.min(1, t));
@@ -256,33 +264,23 @@ function drawProfile(target) {
     const right = mediaSize.width, H = mediaSize.height;
     const maxLen = right * 0.34;              // never swamp the candles
 
-    // Cost-basis distribution: past vs now, and the change between them. Drawn
-    // before the profile body so it sits behind the value-area band and the tape
-    // bars, and before the `hasProfile` return so it still paints when only the
-    // profile fetch failed.
-    if (hasCb) {
-      drawCostBasis(ctx, right, H, maxLen);
+    // On-chain URPD layer: cost-basis past vs now and the change between them,
+    // or — when cost basis cannot cover the symbol (ETH; URPD is BTC-UTXO-only)
+    // or its fetch failed — the one-snapshot silhouette. ONE eye governs both,
+    // because they are the same quantity at two levels of detail, and the same
+    // thing must not take two switches to turn off.
+    //
+    // Drawn before the profile body so it sits behind the value-area band and
+    // the tape bars, and BEFORE the returns below so it still paints when the
+    // profile is hidden or its fetch failed.
+    if (costBasisState.visible) {
+      if (hasCb) drawCostBasis(ctx, right, H, maxLen);
+      else costBasisState.drawn = null;
     } else {
       costBasisState.drawn = null;
     }
-    if (!hasProfile) return;
-
-    const w = d.bucket_usd;
-    let maxQ = 0;
-    for (const b of d.buckets) if (b.q > maxQ) maxQ = b.q;
-    if (!(maxQ > 0)) return;
-
-
-    // FALLBACK ONLY: one-snapshot URPD silhouette. Whenever the cost-basis
-    // payload is available, drawCostBasis has already filled this slot with the
-    // same quantity plus its `past` curve and the change between them, so
-    // drawing this too would double-image the distribution. It survives for the
-    // cases cost basis cannot cover — ETH (URPD is BTC-UTXO-only) and a failed
-    // cost-basis fetch — so the pane still shows supply-by-cost-basis there.
-    // A different granularity ($200 buckets, one date), so it is scaled against
-    // its own max; a shared axis would misrepresent one of the series.
-    const u = d.urpd;
-    if (!hasCb && u && u.buckets && u.buckets.length > 1) {
+    const u = hasProfile ? d.urpd : null;
+    if (costBasisState.visible && !hasCb && u && u.buckets && u.buckets.length > 1) {
       let maxS = 0;
       for (const x of u.buckets) if (x.s > maxS) maxS = x.s;
       if (maxS > 0) {
@@ -307,6 +305,13 @@ function drawProfile(target) {
         }
       }
     }
+    if (!hasProfile || !profileState.visible) return;
+
+    const w = d.bucket_usd;
+    let maxQ = 0;
+    for (const b of d.buckets) if (b.q > maxQ) maxQ = b.q;
+    if (!(maxQ > 0)) return;
+
 
     // value-area band (the 70% of volume around the POC)
     const vaTop = candleSeries.priceToCoordinate(d.value_area.high);
@@ -786,6 +791,9 @@ function updateProfileStatus() {
 function profileTooltipRow(paneY) {
   const d = profileState.data;
   if (!d || !d.buckets || !d.buckets.length) return "";
+  // The eye hides the layer and its readout together: a hover row describing
+  // bars that are not on screen is a claim with nothing behind it.
+  if (!profileState.visible) return "";
   const price = candleSeries.coordinateToPrice(paneY);
   if (price === null || price === undefined || !isFinite(price)) return "";
   const w = d.bucket_usd;
@@ -818,6 +826,42 @@ function buildProfileButtons() {
       loadProfile();
     });
     wrap.appendChild(b);
+  }
+}
+/* ---------------- layer eyes ----------------
+ * The eye beside each window control shows/hides that chart layer. It is a
+ * display switch, not a data switch: the payload stays loaded and the reading
+ * surfaces (status strip, the Who Moved card, hover rows) keep naming the same
+ * numbers. Hiding the cost-basis layer also drops its two price lines, because
+ * those annotate the distribution and would otherwise be a claim with nothing
+ * behind it. */
+function buildLayerEyes() {
+  const eyes = [
+    { id: "profile-eye", name: "profile", group: "profile-window",
+      label: "right-edge volume profile", state: profileState,
+      refresh: () => requestRedraw() },
+    { id: "cb-eye", name: "costbasis", group: "cb-window",
+      label: "cost-basis distribution", state: costBasisState,
+      refresh: () => { applyCostBasisPriceLines(); requestRedraw(); } },
+  ];
+  for (const e of eyes) {
+    const btn = document.getElementById(e.id);
+    if (!btn) continue;
+    const sync = () => {
+      const on = e.state.visible;
+      btn.classList.toggle("off", !on);
+      btn.setAttribute("aria-pressed", String(on));
+      btn.title = (on ? "Hide" : "Show") + " the " + e.label;
+      document.getElementById(e.group)?.classList.toggle("dim", !on);
+    };
+    btn.addEventListener("click", () => {
+      e.state.visible = !e.state.visible;
+      localStorage.setItem(LAYER_VISIBLE_KEY + "_" + e.name, e.state.visible ? "1" : "0");
+      sync();
+      // no refetch: hiding a layer is a repaint, and the payload is already here
+      e.refresh();
+    });
+    sync();
   }
 }
 /* ---------------- cost basis (on-chain URPD) ----------------
@@ -874,6 +918,7 @@ function updateCostBasisStatus() {
 function costBasisTooltipRow(paneY) {
   const d = costBasisState.data;
   if (!d || !d.available || !d.delta || !d.delta.length) return "";
+  if (!costBasisState.visible) return "";   // hidden layer, hidden readout (see profileTooltipRow)
   // read the grouping the last draw actually used: zooming regrids the bars, and
   // a tooltip naming a $200 band while $2,000-wide bars are on screen would lie.
   // Between a repaint and a hover the price range cannot have changed, so the
@@ -891,7 +936,7 @@ function costBasisTooltipRow(paneY) {
   const acc = x.d > 0;
   // the outline bar is `past` and the filled bar is `now`, so naming both here
   // is what ties the numbers back to the two shapes on screen
-  const pct = x.past > 0 ? ` (${x.d > 0 ? "+" : ""}${fmtPct(x.d / x.past, 1)})` : "";
+  const pct = x.past > 0 ? ` (${x.d > 0 ? "+" : ""}${fmtPct(x.d / x.past, true)})` : "";
   return lbl
     + `<td class="v"><span class="${acc ? "cb-acc" : "cb-dist"}">`
     + `${acc ? "+" : ""}${fmtNum(x.d)} BTC ${acc ? "accumulated" : "distributed"}</span>${pct}`
@@ -931,7 +976,11 @@ function applyCostBasisPriceLines() {
   }
   cbPriceLines = [];
   const d = costBasisState.data;
-  if (!d || !d.available) return;
+  // Hidden layer means no lines either: these annotate the distribution, and a
+  // dashed "biggest seller" level floating over a chart with no distribution on
+  // it would be a claim with nothing behind it. The clear above still runs, so
+  // toggling the eye off removes them.
+  if (!d || !d.available || !costBasisState.visible) return;
   const add = (price, colour, title) => {
     if (price === null || price === undefined || !isFinite(price)) return;
     cbPriceLines.push(candleSeries.createPriceLine({
@@ -1170,6 +1219,7 @@ document.getElementById("holder-panel").addEventListener("toggle", () => {
     document.getElementById("intervals").querySelector(`[data-iv="${S.interval}"]`)?.classList.add("active");
     buildProfileButtons();
     buildCostBasisButtons();
+    buildLayerEyes();
     populateSymbolSelect();
     await loadInterval();
     await loadHolder();

@@ -19,10 +19,26 @@
     <div class="profile-wrap">
       <span class="ctl-label">Profile window</span>
       <div id="profile-window" class="btn-group" title="Price range the right-edge volume profile summarises — independent of the chart's own zoom"></div>
+      <!-- eye = show/hide this chart layer. The layer stays loaded either way;
+           the eye decides what gets painted. -->
+      <button id="profile-eye" class="eye" type="button" aria-pressed="true">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <path d="M1 8C3.2 4.2 5.5 2.6 8 2.6S12.8 4.2 15 8c-2.2 3.8-4.5 5.4-7 5.4S3.2 11.8 1 8Z"/>
+          <circle cx="8" cy="8" r="2.3"/>
+          <line class="slash" x1="2.4" y1="13.6" x2="13.6" y2="2.4"/>
+        </svg>
+      </button>
     </div>
     <div class="profile-wrap">
       <span class="ctl-label">Cost-basis window</span>
       <div id="cb-window" class="btn-group" title="How far back the cost-basis change is measured — independent of the profile window above, because it answers a different question (on-chain supply that changed hands, not traded volume)"></div>
+      <button id="cb-eye" class="eye" type="button" aria-pressed="true">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <path d="M1 8C3.2 4.2 5.5 2.6 8 2.6S12.8 4.2 15 8c-2.2 3.8-4.5 5.4-7 5.4S3.2 11.8 1 8Z"/>
+          <circle cx="8" cy="8" r="2.3"/>
+          <line class="slash" x1="2.4" y1="13.6" x2="13.6" y2="2.4"/>
+        </svg>
+      </button>
     </div>
     <div class="source-wrap">
       <select id="source" title="Volume definition driving the volume panel"></select>
