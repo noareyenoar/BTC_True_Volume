@@ -39,6 +39,10 @@
 
 <details id="holder-panel" open>
   <summary>On-Chain Holder Panel</summary>
+  <!-- Who Moved is filled by renderCostBasisMovers() and re-renders with the
+       cost-basis window, so it sits outside #holder-content (which loadHolder()
+       replaces wholesale). -->
+  <div id="cb-movers" class="holder-content"></div>
   <div id="holder-content" class="holder-content">
     <div class="holder-empty">Loading…</div>
   </div>
@@ -53,15 +57,19 @@
   the latest refresh. Every volume number carries its source + confidence tier on hover.<br>
   Right-edge profile: <b class="legend-tape">bars</b> = traded notional per price level over
   the selected window (Binance USD-M futures tape, one venue) — a level where real volume
-  actually changed hands. <b class="legend-urpd">Purple silhouette</b> = on-chain supply by
-  cost basis (URPD), one snapshot, independently scaled: a different measure at a different
-  granularity, so the two are not comparable bar-for-bar.<br>
-  Left-edge <b class="legend-cb">cost-basis bars</b> = how much supply sitting at each price
-  level grew or shrank over the cost-basis window, from the same URPD data: <span class="cb-acc">green</span>
-  = coins whose cost basis is there increased (accumulation), <span class="cb-dist">red</span>
-  = that cohort was spent or moved (distribution). A cohort spent above its own cost basis is
-  realised profit, below it a loss. Scaled on one symmetric axis of its own, so a bar twice as
-  long is twice the BTC — not comparable to the tape bars opposite it.<br>
+  actually changed hands.<br>
+  <b class="legend-cb">Cost basis</b> (on-chain URPD — supply bucketed by the price its owner
+  paid) shows <b>who is selling and at what cost</b>, by comparing two dates. Same right edge
+  as the tape profile, drawn behind it: the <b>hollow outline</b> is how much supply sat at
+  that price on the earlier date, the <b>filled bar</b> is how much sits there on the later
+  one, and the <b>cap</b> between the two ends is the change — <span class="cb-acc">green</span>
+  where the cohort grew (coins parked at that cost basis), <span class="cb-dist">red</span>
+  where it shrank (that cohort's coins moved). All three share one scale, so a cap twice as
+  long is twice the BTC — but they are a different measure from the tape bars in front of
+  them and are not comparable bar-for-bar. Hover a level for its two dates and the change, and
+  the <b>Who Moved</b> card below ranks the biggest sellers and buyers with the price they
+  bought at, tagged <b>above</b>/<b>below</b> the price at the end of the window: a cohort
+  spent <i>above</i> its own cost basis is realised profit, <i>below</i> is realised loss.<br>
   <span class="vintage-warn">The cost-basis and holder-cohort data ends 2026-02-19: the upstream
   source froze there. It is real per-UTXO data computed by checkonchain's node, but it is
   history, not a live reading — unlike the candles and tape bars beside it.</span>

@@ -34,7 +34,15 @@ function fmtNum(v, digits = 2) {
   return v.toFixed(digits);
 }
 function fmtUsd(v) { return v === null || v === undefined || isNaN(v) ? "—" : "$" + fmtNum(v, 2); }
-function fmtPct(v) { return v === null || v === undefined || isNaN(v) ? "—" : (v * 100).toFixed(1) + "%"; }
+/* `sep` is opt-in: the cost-basis movers quote a change against a supply level
+ * that can be near zero (365d at $84k: +714.94K BTC off a 6.4K base), and
+ * "+11054.8%" is unreadable where "+11,054.8%" scans. Every other caller gets
+ * the unchanged bare form. */
+function fmtPct(v, sep = false) {
+  if (v === null || v === undefined || isNaN(v)) return "—";
+  const s = (v * 100).toFixed(1);
+  return (sep ? Number(s).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : s) + "%";
+}
 function fmtTs(ms, interval) {
   const d = new Date(ms);
   return interval === "1d"
@@ -248,11 +256,10 @@ function drawProfile(target) {
     const right = mediaSize.width, H = mediaSize.height;
     const maxLen = right * 0.34;              // never swamp the candles
 
-    // Cost-basis delta bars: which acquisition-price cohorts GREW and which were
-    // SPENT between the two stamped dates. Left-anchored at x = 0 growing
-    // rightward — opposite the tape bars — so the two layers cannot collide and
-    // no midline bookkeeping is needed. Drawn before the profile body so it sits
-    // behind the value-area band, and first so it does not depend on it.
+    // Cost-basis distribution: past vs now, and the change between them. Drawn
+    // before the profile body so it sits behind the value-area band and the tape
+    // bars, and before the `hasProfile` return so it still paints when only the
+    // profile fetch failed.
     if (hasCb) {
       drawCostBasis(ctx, right, H, maxLen);
     } else {
@@ -266,12 +273,16 @@ function drawProfile(target) {
     if (!(maxQ > 0)) return;
 
 
-    // URPD silhouette: on-chain supply by cost basis, drawn BEHIND the tape bars.
-    // A different measure AND a different granularity ($200 buckets, one snapshot),
-    // so it is scaled against its own max — a shared axis would silently
-    // misrepresent one of the two series.
+    // FALLBACK ONLY: one-snapshot URPD silhouette. Whenever the cost-basis
+    // payload is available, drawCostBasis has already filled this slot with the
+    // same quantity plus its `past` curve and the change between them, so
+    // drawing this too would double-image the distribution. It survives for the
+    // cases cost basis cannot cover — ETH (URPD is BTC-UTXO-only) and a failed
+    // cost-basis fetch — so the pane still shows supply-by-cost-basis there.
+    // A different granularity ($200 buckets, one date), so it is scaled against
+    // its own max; a shared axis would misrepresent one of the series.
     const u = d.urpd;
-    if (u && u.buckets && u.buckets.length > 1) {
+    if (!hasCb && u && u.buckets && u.buckets.length > 1) {
       let maxS = 0;
       for (const x of u.buckets) if (x.s > maxS) maxS = x.s;
       if (maxS > 0) {
@@ -350,10 +361,16 @@ function drawProfile(target) {
       level(d.realized_price.value, AMBER, `realized ${fmtNum(d.realized_price.value, 0)}`);
   });
 }
-/* Cost-basis delta bars: which acquisition-price cohorts GREW and which were
- * SPENT between the two stamped dates. Left-anchored at x = 0 growing rightward
- * — opposite the tape bars — so the two layers cannot collide and no midline
- * bookkeeping is needed. */
+/* Cost-basis distribution: how much supply sat at each acquisition price on the
+ * two stamped dates, and the change between them. Right-anchored at the same
+ * edge as the tape profile — NOT in a gutter of its own — because the whole
+ * point is to read a price level's cohort against price itself. It replaces the
+ * single-snapshot silhouette that used to occupy this slot (see drawProfile),
+ * so `now` costs nothing extra and `past` finally gets drawn at all.
+ *
+ * Reading it: the hollow outline is where supply sat `prev_as_of`; the filled
+ * bar is where it sits `as_of`; the coloured cap between the two ends IS the
+ * change, so a long red cap at a price means coins left that level. */
 function drawCostBasis(ctx, right, H, maxLen) {
   const cb = costBasisState.data;
   const cw = cb.bucket_usd;
@@ -386,26 +403,47 @@ function drawCostBasis(ctx, right, H, maxLen) {
   // names is always the band under the cursor
   costBasisState.drawn = { w: aggW, rows };
 
-  let maxAbs = 0;
-  for (const g of rows) { const a = Math.abs(g.d); if (a > maxAbs) maxAbs = a; }
-  if (!(maxAbs > 0)) return;
-  // 2) ONE symmetric scale for both directions, so a bar twice as long is twice
-  // the BTC. Normalising accumulation and distribution against their own maxima
-  // would misrepresent their relative size.
-  const maxLenC = maxLen * 0.95;
+  // 2) ONE scale over BOTH curves. Scaling past and now independently would
+  // erase the comparison entirely, and scaling on the delta (as the old
+  // left-edge bars did) would collapse both curves to slivers.
+  let scale = 0;
   for (const g of rows) {
-    if (!g.d || g.d !== g.d) continue;
+    const m = Math.max(g.past || 0, g.now || 0);
+    if (m > scale) scale = m;
+  }
+  if (!(scale > 0)) return;
+  const maxLenC = maxLen * 0.95;
+  const PAST_STROKE = "rgba(176, 125, 255, 0.55)";
+  const NOW_FILL = "rgba(176, 125, 255, 0.16)";
+  for (const g of rows) {
     const yTop = candleSeries.priceToCoordinate(g.p + aggW);
     const yBot = candleSeries.priceToCoordinate(g.p);
     if (yTop === null || yBot === null) continue;
     if (yBot <= 0 || yTop >= H) continue;     // same boundary guard as the tape
     const bh = yBot - yTop;
     if (bh < 0.5) continue;
-    const len = (Math.abs(g.d) / maxAbs) * maxLenC;
-    if (len < 0.5) continue;
-    ctx.fillStyle = g.d > 0 ? "rgba(38, 166, 154, 0.62)"          // accumulation
-                            : "rgba(239, 83, 80, 0.62)";          // distribution
-    ctx.fillRect(0, yTop, len, Math.max(0.5, bh - 0.5));
+    const hFill = Math.max(0.5, bh - 0.5);
+    const lenPast = Math.min(maxLenC, ((g.past || 0) / scale) * maxLenC);
+    const lenNow = Math.min(maxLenC, ((g.now || 0) / scale) * maxLenC);
+    // Order matters: `now` is translucent, so the cap has to land on top of it
+    // where the level grew. The past outline goes last — it is the reference
+    // line the other two are read against, and must stay crisp.
+    if (lenNow >= 0.5) {
+      ctx.fillStyle = NOW_FILL;
+      ctx.fillRect(right - lenNow, yTop, lenNow, hFill);
+    }
+    if (lenNow > lenPast + 0.5) {              // level grew: coins parked here
+      ctx.fillStyle = "rgba(38, 166, 154, 0.75)";
+      ctx.fillRect(right - lenNow, yTop, lenNow - lenPast, hFill);
+    } else if (lenPast > lenNow + 0.5) {       // level shrank: coins spent here
+      ctx.fillStyle = "rgba(239, 83, 80, 0.75)";
+      ctx.fillRect(right - lenPast, yTop, lenPast - lenNow, hFill);
+    }
+    if (lenPast >= 0.5) {
+      ctx.strokeStyle = PAST_STROKE;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(right - lenPast, yTop + 0.5, lenPast, hFill);
+    }
   }
 }
 const profilePrimitive = {
@@ -802,10 +840,16 @@ async function loadCostBasis() {
     const el = document.getElementById("status-cb");
     if (el) el.innerHTML = `<span class="mkt-note">Cost basis unavailable — ${e.message}</span>`;
     requestRedraw();
+    // the ranked card and the price lines are DOM/series state, not canvas, so
+    // requestRedraw() does not touch them — they must be cleared explicitly
+    renderCostBasisMovers();
+    applyCostBasisPriceLines();
     return;
   }
   requestRedraw();
   updateCostBasisStatus();
+  renderCostBasisMovers();
+  applyCostBasisPriceLines();
 }
 function updateCostBasisStatus() {
   const el = document.getElementById("status-cb");
@@ -818,10 +862,13 @@ function updateCostBasisStatus() {
   }
   const net = d.net_delta_btc;
   const dir = net >= 0 ? "net accumulation" : "net distribution";
+  const px = (d.price_usd === null || d.price_usd === undefined) ? ""
+    : ` · price ${fmtPx(d.price_usd)}${d.price_usd_prev === null || d.price_usd_prev === undefined
+        ? "" : ` from ${fmtPx(d.price_usd_prev)}`}`;
   el.innerHTML = `<span>Cost basis <b>${d.window}</b> `
     + `(${d.prev_as_of} → ${d.as_of}, ${d.span_days}d) — `
-    + `<span class="legend-cb">Δ supply / $${fmtNum(d.bucket_usd, 0)} bucket</span> · `
-    + `<b>${net >= 0 ? "+" : ""}${fmtNum(net)} BTC</b> ${dir} · `
+    + `<span class="legend-cb">hollow = supply then, filled = supply now, cap = the change</span> · `
+    + `<b>${net >= 0 ? "+" : ""}${fmtNum(net)} BTC</b> ${dir}${px} · `
     + `<span class="mkt-note">data to ${d.data_vintage} (source frozen) — history, not a live reading</span></span>`;
 }
 function costBasisTooltipRow(paneY) {
@@ -842,12 +889,125 @@ function costBasisTooltipRow(paneY) {
   const x = rows.find(v => Math.floor(v.p / w) === Math.floor(price / w));
   if (!x) return lbl + `<td class="v na">no supply bucket at this price</td></tr>`;
   const acc = x.d > 0;
+  // the outline bar is `past` and the filled bar is `now`, so naming both here
+  // is what ties the numbers back to the two shapes on screen
+  const pct = x.past > 0 ? ` (${x.d > 0 ? "+" : ""}${fmtPct(x.d / x.past, 1)})` : "";
   return lbl
     + `<td class="v"><span class="${acc ? "cb-acc" : "cb-dist"}">`
-    + `${acc ? "+" : ""}${fmtNum(x.d)} BTC ${acc ? "accumulated" : "distributed"}</span>`
+    + `${acc ? "+" : ""}${fmtNum(x.d)} BTC ${acc ? "accumulated" : "distributed"}</span>${pct}`
     + `<br><span class="src-meta">$${fmtNum(x.p, 0)}–$${fmtNum(x.p + w, 0)} · `
-    + `supply ${fmtNum(x.past)} → ${fmtNum(x.now)} BTC · ${d.prev_as_of}→${d.as_of}</span></td></tr>`;
+    + `hollow ${fmtNum(x.past)} → filled ${fmtNum(x.now)} BTC · ${d.prev_as_of}→${d.as_of}</span></td></tr>`;
 }
+/* $1,000 zones, not the source's raw $200 buckets: one cohort of owners is
+ * spread across ~10 adjacent buckets, so ranking buckets shatters a single wall
+ * into fragments that each look small. Zoning groups them back into one price
+ * level a reader can actually point at on the axis.
+ *
+ * Every consumer reads through this one function so the price line on the chart
+ * and the row in the table can never disagree about which level is the biggest
+ * seller. */
+const CB_ZONE_USD = 1000;
+function cbZones() {
+  const d = costBasisState.data;
+  if (!d || !d.available || !d.delta || !d.delta.length) return null;
+  const zones = new Map();
+  for (const r of d.delta) {
+    const z = Math.floor(r.p / CB_ZONE_USD) * CB_ZONE_USD;
+    let g = zones.get(z);
+    if (!g) { g = { p: z, d: 0, past: 0, now: 0 }; zones.set(z, g); }
+    g.d += r.d || 0; g.past += r.past || 0; g.now += r.now || 0;
+  }
+  return Array.from(zones.values());
+}
+
+/* Vintage price + the heaviest distribution level, as native price lines.
+ * The price MUST come from the payload, never from the live last close: the
+ * curve is a frozen snapshot, and anchoring it to today's price would silently
+ * present a 2026-02-18 distribution as a current one. */
+let cbPriceLines = [];
+function applyCostBasisPriceLines() {
+  for (const l of cbPriceLines) {
+    try { candleSeries.removePriceLine(l); } catch (e) { /* already gone */ }
+  }
+  cbPriceLines = [];
+  const d = costBasisState.data;
+  if (!d || !d.available) return;
+  const add = (price, colour, title) => {
+    if (price === null || price === undefined || !isFinite(price)) return;
+    cbPriceLines.push(candleSeries.createPriceLine({
+      price: price, color: colour, lineWidth: 1, lineStyle: 2,   // dashed
+      axisLabelVisible: true, title: title,
+    }));
+  };
+  add(d.price_usd, "#b07dff", `cost-basis vintage ${d.as_of}`);
+  // The heaviest distribution level — the cohort doing the most selling, named
+  // on the axis so the "sell wall" is a price you can read straight off the
+  // chart. Same zones the table ranks, so the two agree on the number.
+  const zones = cbZones();
+  let worst = null;
+  for (const z of (zones || [])) if (z.d < 0 && (!worst || z.d < worst.d)) worst = z;
+  if (worst) add(worst.p, "#ef5350", `biggest seller ${fmtPx(worst.p)}`);
+}
+
+/* Ranked "who moved" readout.
+ *
+ * The bars show the whole distribution at once, so at any usable zoom the
+ * smaller cohorts are a few pixels each and the biggest ones all look alike.
+ * This names the ones that actually moved, in BTC, at the price they bought,
+ * and on which side of the vintage price they sit — which is the difference
+ * between capitulation (spent above cost basis) and profit-taking.
+ *
+ * Rows are $1,000 zones (see cbZones) so the rankings are price levels, not
+ * fragments of one wall. */
+/* Prices are quoted in full, not through fmtNum's K/M shorthand: this column
+ * exists to name an exact level, and "$84K" is both harder to scan against the
+ * chart's axis and lossy if the zone width ever drops below $1,000. */
+const fmtPx = v => `$${Math.round(v).toLocaleString("en-US")}`;
+function renderCostBasisMovers() {
+  const box = document.getElementById("cb-movers");
+  if (!box) return;
+  const d = costBasisState.data;
+  if (!d || !d.available || !d.delta || !d.delta.length) {
+    box.innerHTML = `<div class="holder-card"><h3>Who Moved</h3>
+      <div class="holder-row"><span>Cost-basis change</span>
+      <span class="na">${d && d.note ? d.note : "not available"}</span></div></div>`;
+    return;
+  }
+  const all = cbZones();
+  if (!all) return;
+  const px = d.price_usd;
+  const sellers = all.filter(z => z.d < 0).sort((a, b) => a.d - b.d).slice(0, 6);
+  const buyers = all.filter(z => z.d > 0).sort((a, b) => b.d - a.d).slice(0, 6);
+  const grossAcc = all.reduce((s, z) => s + (z.d > 0 ? z.d : 0), 0);
+  const grossDist = all.reduce((s, z) => s + (z.d < 0 ? z.d : 0), 0);
+  // Computed, never assumed: in the 90d window the top accumulation zones all
+  // sit ABOVE the vintage price, so a hardcoded "buyers bought low" would lie.
+  const side = z => (px === null || px === undefined) ? "" :
+    `<span class="side">${z.p >= px ? "above" : "below"}</span>`;
+  const row = z => {
+    const pct = z.past > 0 ? `${z.d > 0 ? "+" : ""}${fmtPct(z.d / z.past, true)}` : "—";
+    return `<div class="mover-row"><span class="px">${fmtPx(z.p)}</span>
+      <span class="amt ${z.d > 0 ? "cb-acc" : "cb-dist"}">${z.d > 0 ? "+" : ""}${fmtNum(z.d)}</span>
+      <span class="pct">${pct}</span>${side(z)}</div>`;
+  };
+  box.innerHTML = `<div class="holder-card"><h3>Who Moved — ${d.window} change</h3>
+    <div class="mover-head">${d.prev_as_of} → ${d.as_of}${
+      px === null || px === undefined ? "" : ` · price ${fmtPx(px)}`}</div>
+    <div class="mover-group">SOLD OFF — cohorts that shrank</div>${sellers.map(row).join("")}
+    <div class="mover-group">BOUGHT IN — cohorts that grew</div>${buyers.map(row).join("")}
+    <div class="holder-note">
+      Each row is a $${fmtNum(CB_ZONE_USD, 0)} price zone: BTC of supply that
+      changed hands, and the share of what sat there before. <b>above</b> = that
+      cohort's cost basis is higher than the price at the end of the window, so
+      spending there realises a <span class="cb-dist">loss</span>;
+      <b>below</b> = realises a <span class="cb-acc">profit</span>.
+      ${fmtNum(grossAcc)} BTC accumulated / ${fmtNum(grossDist)} BTC distributed,
+      net ${d.net_delta_btc >= 0 ? "+" : ""}${fmtNum(d.net_delta_btc)} BTC.
+      Hollow outline on the chart is this cohort ${d.prev_as_of}, filled is ${d.as_of}.
+    </div>
+    <div class="vintage">checkonchain, data to ${d.as_of}</div></div>`;
+}
+
 function buildCostBasisButtons() {
   const wrap = document.getElementById("cb-window");
   if (!wrap) return;
@@ -971,12 +1131,13 @@ async function loadHolder() {
         `<div class="urpd-row"><span style="width:110px">≤ $${fmtNum(b.price_bucket_usd, 0)}</span>
          <div class="bar" style="width:${Math.round(b.supply_btc / maxB * 120)}px"></div>
          <span class="amt">${fmtNum(b.supply_btc)} BTC</span></div>`).join("");
-      html += `<div class="holder-card"><h3>Heaviest Cost-Basis Buckets (${h.urpd.data_vintage || "—"}, ${h.urpd.n_buckets} buckets)</h3>
+      html += `<div class="holder-card"><h3>Heaviest Cost-Basis Levels (${h.urpd.data_vintage || "—"}, ${h.urpd.n_buckets} buckets)</h3>
         <div class="urpd-bars">${rows}</div>
         <div class="holder-note">${h.urpd.note} · total supply ${fmtNum(h.urpd.total_supply_btc)} BTC</div>
-        <div class="holder-note">The ten price levels holding the most supply. The
-          <span class="legend-cb">cost-basis overlay</span> on the chart shows how each of
-          these buckets changed over a chosen window.</div></div>`;
+        <div class="holder-note">Where supply SITS — the ten price levels holding the most
+          coins, on one date. For where supply MOVED, see the
+          <b>Who Moved</b> card above, which compares two dates and names the cohorts
+          being spent.</div></div>`;
     } else {
       html += `<div class="holder-card"><h3>Cost-Basis Buckets</h3>
         <div class="holder-row"><span>Available</span><span class="na">${h.urpd ? h.urpd.note : "not available"}</span></div></div>`;

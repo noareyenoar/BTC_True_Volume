@@ -68,6 +68,18 @@ summary { padding: 8px 12px; cursor: pointer; font-weight: 600; }
 .urpd-row { display: flex; align-items: center; gap: 6px; font-size: 11px; }
 .urpd-row .bar { height: 10px; background: var(--blue); border-radius: 2px; min-width: 2px; }
 .urpd-row .amt { color: var(--muted); }
+/* "Who Moved": one row per price zone. A 4-column grid rather than a flex row so
+   the price, the BTC moved, the %, and the side of the vintage price all line up
+   down the column — the point is comparing cohorts, which needs a common axis. */
+.mover-head { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+.mover-group { font-size: 10px; color: var(--muted); font-weight: 600;
+               letter-spacing: .02em; margin: 6px 0 2px; }
+.mover-row { display: grid; grid-template-columns: 58px 1fr 52px 40px;
+             gap: 6px; font-size: 11px; padding: 1px 0; }
+.mover-row .px { color: var(--text); }
+.mover-row .amt { text-align: right; }
+.mover-row .pct { text-align: right; color: var(--muted); }
+.mover-row .side { text-align: right; color: var(--muted); font-size: 10px; }
 footer {
   padding: 10px 16px 16px; font-size: 11px; color: var(--muted);
   border-top: 1px solid var(--border);
