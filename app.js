@@ -7,6 +7,13 @@
 
 const UP = "#26a69a", DOWN = "#ef5350", MUTED = "#787b86", AMBER = "#f59e0b", PURPLE = "#b07dff";
 
+// Cost-basis windows the source publishes. The 14-day window is retired
+// upstream -- the live host 404s it -- so it is gone here, from the API's own
+// list, and from the buttons; a "14d" remembered in localStorage from before
+// the repoint is clamped below rather than left selecting a window that can
+// only answer with the unavailable state.
+const CB_WINDOWS = ["30d", "90d", "180d", "365d"];
+
 const S = {
   symbol: "BTCUSDT", interval: "1h",
   bars: [], gapSlots: [], sourcesMeta: [], sourceOpts: [],
@@ -20,13 +27,19 @@ const S = {
   // The cost-basis window is INDEPENDENT of the profile window: they measure
   // different things (traded notional vs supply that changed hands), so forcing
   // one control to drive both would silently couple two unrelated questions.
-  cbWindow: localStorage.getItem("vsa_cb_window") || "90d",
+  cbWindow: CB_WINDOWS.includes(localStorage.getItem("vsa_cb_window"))
+    ? localStorage.getItem("vsa_cb_window") : "90d",
   cbCache: new Map(),
   // status-bar text that only the volume/marker renderers can compute. Held here,
   // not written straight to the DOM: updateStatus() rebuilds the bar wholesale,
   // so a span written before that rebuild is written into nothing. See
   // updateSourceStatus().
   statusSource: "", statusLarge: "",
+  // Candle annotations, on by default (they are the VSA signal) but switchable:
+  // drawn across the whole loaded range they bury the candles at 1h/1d zoom.
+  // A display switch only -- the breakdown data and the status counts stay.
+  markersLarge: localStorage.getItem("vsa_markers_large") !== "0",
+  markersFills: localStorage.getItem("vsa_markers_fills") !== "0",
 };
 
 /* ---------------- helpers ---------------- */
@@ -384,8 +397,9 @@ function drawProfile(target) {
 function drawCostBasis(ctx, right, H, maxLen) {
   const cb = costBasisState.data;
   const cw = cb.bucket_usd;
-  // 1) Regrid the fine $200 grid up to what this zoom can actually show. At a
-  // full-history zoom one $200 bucket is a fraction of a pixel, so the fine grid
+  // 1) Regrid the fine source grid ($200 in the frozen mirror generation, $500 on
+  // the live host) up to what this zoom can actually show. At a full-history zoom
+  // one such bucket is a fraction of a pixel, so the fine grid
   // would draw nothing at all (every bar culled by the same boundary guard the
   // tape uses). The tape profile solves this server-side with a display width;
   // this layer is a snapshot that has to answer to zoom without a refetch, so it
@@ -524,14 +538,24 @@ function sourceLabel(key) {
   return m ? m.label : key;
 }
 
-/* ---------------- markers ---------------- */
+/* ---------------- markers ----------------
+ * Two annotation layers, each with its own switch in the toolbar:
+ *   fills  -- below-bar labels ("cross-filled", "gap"). One switch covers both:
+ *             they are the same layer and the same kind of statement (how this
+ *             bar's data was assembled), and a gap marker only draws on bars
+ *             that are not cross-filled, so a third button would be dead weight.
+ *   large  -- above-bar arrows on the top-decile large-trade bars.
+ * Switching a layer off is a repaint, never a refetch: S.breakdown and the
+ * counts in the status strip keep reporting exactly what they reported before. */
 function renderMarkers() {
   const markers = [];
-  for (const b of S.bars) {
-    if (b.cross_filled) markers.push({ time: b.open_time / 1000, position: "belowBar",
-      color: AMBER, shape: "circle", text: "cross-filled" });
-    else if (b.follows_gap) markers.push({ time: b.open_time / 1000, position: "belowBar",
-      color: MUTED, shape: "circle", text: "gap" });
+  if (S.markersFills) {
+    for (const b of S.bars) {
+      if (b.cross_filled) markers.push({ time: b.open_time / 1000, position: "belowBar",
+        color: AMBER, shape: "circle", text: "cross-filled" });
+      else if (b.follows_gap) markers.push({ time: b.open_time / 1000, position: "belowBar",
+        color: MUTED, shape: "circle", text: "gap" });
+    }
   }
   // large-trade markers: top-decile days of large_trade_notional within loaded data
   const vals = [...S.breakdown.values()].map(bd => bd.large_trade_notional)
@@ -539,15 +563,18 @@ function renderMarkers() {
   S.statusLarge = "";                    // too few bars -> no threshold, no note
   if (vals.length >= 20) {
     const thresh = vals[Math.floor(vals.length * 0.90)];
-    for (const b of S.bars) {
-      const bd = S.breakdown.get(b.open_time);
-      if (bd && bd.large_trade_notional !== null && bd.large_trade_notional !== undefined
-          && bd.large_trade_notional > thresh) {
-        markers.push({ time: b.open_time / 1000, position: "aboveBar", color: PURPLE,
-          shape: "arrowUp", text: "large" });
+    if (S.markersLarge) {
+      for (const b of S.bars) {
+        const bd = S.breakdown.get(b.open_time);
+        if (bd && bd.large_trade_notional !== null && bd.large_trade_notional !== undefined
+            && bd.large_trade_notional > thresh) {
+          markers.push({ time: b.open_time / 1000, position: "aboveBar", color: PURPLE,
+            shape: "arrowUp", text: "large" });
+        }
       }
     }
-    S.statusLarge = "large-trade marker: >" + fmtUsd(thresh) + " (top decile of loaded range)";
+    S.statusLarge = "large-trade marker: >" + fmtUsd(thresh) +
+      " (top decile of loaded range)" + (S.markersLarge ? "" : " — hidden");
   }
   updateLargeStatus();
   candleSeries.setMarkers(markers);
@@ -804,7 +831,8 @@ function updateProfileStatus() {
   // the snapshot's own vintage, NOT captured_utc — that field is the fetch date
   // and is months later, which the old label silently passed off as the vintage
   const ur = d.urpd && d.urpd.buckets
-    ? ` · <span class="legend-urpd">on-chain cost basis</span> to ${d.urpd.data_vintage || "—"} (source frozen)`
+    ? ` · <span class="legend-urpd">on-chain cost basis</span> to `
+      + `${d.urpd.data_vintage || "— (frozen fallback store)"}`
     : "";
   el.innerHTML = `<span>Profile <b>${d.window}</b> (${d.n_days}d to ${d.as_of}) — `
     + `bars: traded notional / $${fmtNum(d.bucket_usd, 0)} · `
@@ -887,6 +915,37 @@ function buildLayerEyes() {
     sync();
   }
 }
+/* Marker switches. Same segmented-button look as the window controls, because
+ * they are the same kind of control: a remembered display choice. Annotations
+ * span the whole loaded range, so at 1h/1d they cover the candles entirely --
+ * turning them off must not touch the data, only the paint. */
+function buildMarkerToggles() {
+  const toggles = [
+    { id: "mk-large", name: "large", key: "markersLarge",
+      label: "large-trade arrows (top-decile notional)" },
+    { id: "mk-fills", name: "cross-filled", key: "markersFills",
+      label: "cross-filled / gap labels" },
+  ];
+  for (const t of toggles) {
+    const btn = document.getElementById(t.id);
+    if (!btn) continue;
+    btn.textContent = t.name;
+    const sync = () => {
+      const on = S[t.key];
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-pressed", String(on));
+      btn.title = (on ? "Hide" : "Show") + " " + t.label;
+    };
+    btn.addEventListener("click", () => {
+      S[t.key] = !S[t.key];
+      localStorage.setItem("vsa_markers_" + t.name.replace("-", "_"),
+                           S[t.key] ? "1" : "0");
+      sync();
+      renderMarkers();   // repaint only: breakdown data is untouched
+    });
+    sync();
+  }
+}
 /* ---------------- cost basis (on-chain URPD) ----------------
  * Same load/control/status/tooltip shape as the volume profile above, but a
  * separate window control on purpose: this answers "who is selling at what cost"
@@ -936,7 +995,8 @@ function updateCostBasisStatus() {
     + `(${d.prev_as_of} → ${d.as_of}, ${d.span_days}d) — `
     + `<span class="legend-cb">hollow = supply then, filled = supply now, cap = the change</span> · `
     + `<b>${net >= 0 ? "+" : ""}${fmtNum(net)} BTC</b> ${dir}${px} · `
-    + `<span class="mkt-note">data to ${d.data_vintage} (source frozen) — history, not a live reading</span></span>`;
+    + `<span class="mkt-note">on-chain supply, data to ${d.data_vintage} — a dated `
+    + `measurement, not the live tape</span></span>`;
 }
 function costBasisTooltipRow(paneY) {
   const d = costBasisState.data;
@@ -966,7 +1026,7 @@ function costBasisTooltipRow(paneY) {
     + `<br><span class="src-meta">$${fmtNum(x.p, 0)}–$${fmtNum(x.p + w, 0)} · `
     + `hollow ${fmtNum(x.past)} → filled ${fmtNum(x.now)} BTC · ${d.prev_as_of}→${d.as_of}</span></td></tr>`;
 }
-/* $1,000 zones, not the source's raw $200 buckets: one cohort of owners is
+/* $1,000 zones, not the source's raw buckets: one cohort of owners is
  * spread across ~10 adjacent buckets, so ranking buckets shatters a single wall
  * into fragments that each look small. Zoning groups them back into one price
  * level a reader can actually point at on the axis.
@@ -989,9 +1049,9 @@ function cbZones() {
 }
 
 /* Vintage price + the heaviest distribution level, as native price lines.
- * The price MUST come from the payload, never from the live last close: the
- * curve is a frozen snapshot, and anchoring it to today's price would silently
- * present a 2026-02-18 distribution as a current one. */
+ * The price MUST come from the payload, never from the live last close: an
+ * on-chain curve describes one dated moment, and anchoring it to today's price
+ * would present a measurement taken days or weeks ago as a current one. */
 let cbPriceLines = [];
 function applyCostBasisPriceLines() {
   for (const l of cbPriceLines) {
@@ -1083,7 +1143,7 @@ function renderCostBasisMovers() {
 function buildCostBasisButtons() {
   const wrap = document.getElementById("cb-window");
   if (!wrap) return;
-  const windows = ["14d", "30d", "90d", "180d", "365d"];
+  const windows = CB_WINDOWS;
   wrap.innerHTML = "";
   for (const w of windows) {
     const b = document.createElement("button");
@@ -1243,6 +1303,7 @@ document.getElementById("holder-panel").addEventListener("toggle", () => {
     buildProfileButtons();
     buildCostBasisButtons();
     buildLayerEyes();
+    buildMarkerToggles();
     populateSymbolSelect();
     await loadInterval();
     await loadHolder();

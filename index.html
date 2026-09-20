@@ -40,6 +40,17 @@
         </svg>
       </button>
     </div>
+    <div class="profile-wrap">
+      <span class="ctl-label">Markers</span>
+      <!-- Candle annotations. Drawn across the whole loaded range, so at 1h/1d
+           they cover the candles; these switch the paint, not the data. Choice
+           is remembered (vsa_markers_large / vsa_markers_fills). -->
+      <div id="marker-toggles" class="btn-group"
+           title="Candle annotations. Switching one off repaints the chart only — the breakdown data and the status counts are unchanged.">
+        <button id="mk-large" type="button" aria-pressed="true">large</button>
+        <button id="mk-fills" type="button" aria-pressed="true">cross-filled</button>
+      </div>
+    </div>
     <div class="source-wrap">
       <select id="source" title="Volume definition driving the volume panel"></select>
       <span class="source-note">Exchange volume is prone to wash trading; on-chain settled
@@ -86,9 +97,10 @@
   the <b>Who Moved</b> card below ranks the biggest sellers and buyers with the price they
   bought at, tagged <b>above</b>/<b>below</b> the price at the end of the window: a cohort
   spent <i>above</i> its own cost basis is realised profit, <i>below</i> is realised loss.<br>
-  <span class="vintage-warn">The cost-basis and holder-cohort data ends 2026-02-19: the upstream
-  source froze there. It is real per-UTXO data computed by checkonchain's node, but it is
-  history, not a live reading — unlike the candles and tape bars beside it.</span>
+  <span class="vintage-warn">Cost-basis and holder-cohort data comes from checkonchain's live
+  charts and is current to the vintage stamped on each panel. The 14-day window is gone — the
+  publisher retired it. It is real per-UTXO data computed by checkonchain's node, so it is a
+  dated measurement, not the live tape beside it.</span>
 </footer>
 
 <div id="tooltip" class="tooltip" style="display:none"></div>
