@@ -17,6 +17,11 @@ const S = {
   holder: null, fetchSeq: 0,
   profileWindow: localStorage.getItem("vsa_profile_window") || "90d",
   profileCache: new Map(),
+  // The cost-basis window is INDEPENDENT of the profile window: they measure
+  // different things (traded notional vs supply that changed hands), so forcing
+  // one control to drive both would silently couple two unrelated questions.
+  cbWindow: localStorage.getItem("vsa_cb_window") || "90d",
+  cbCache: new Map(),
 };
 
 /* ---------------- helpers ---------------- */
@@ -121,6 +126,11 @@ async function api(path) {
     if (!pf) throw new Error("this export has no volume profile — re-publish the site");
     return loadJSONFile(pf[sym + "_" + (q.window || "90d")]);
   }
+  if (what === "cost_basis") {
+    const cbf = STATIC.files.cost_basis;
+    if (!cbf) throw new Error("this export has no cost-basis overlay — re-publish the site");
+    return loadJSONFile(cbf[sym + "_" + (q.window || "90d")]);
+  }
   if (what === "ohlc") {
     const resp = await loadJSONFile(STATIC.files.bars[sym + "_" + iv]);
     let bars = resp.bars;
@@ -213,6 +223,13 @@ let takerBuySeries = null, takerSellSeries = null;
  * hook the refreshBreakdown() visible-range path (which is range-scoped and would
  * mangle an "all" window). */
 const profileState = { data: null };
+/* Cost basis (on-chain URPD): supply bucketed by the price each coin last moved
+ * at — i.e. what its owner paid — and how those buckets changed between two
+ * stamped dates. Same primitive as the profile (one canvas, one repaint path);
+ * only the anchor differs. */
+/* `drawn` caches the regridded bars the last paint actually drew, so the tooltip
+ * names the same price band the user is pointing at (see drawProfile). */
+const costBasisState = { data: null, drawn: null };
 const AMBER_RGB = [245, 158, 11], GREEN_RGB = [38, 166, 154], RED_RGB = [239, 83, 80];
 function mixRgb(a, b, t) {
   t = Math.max(0, Math.min(1, t));
@@ -220,13 +237,34 @@ function mixRgb(a, b, t) {
 }
 function drawProfile(target) {
   const d = profileState.data;
-  if (!d || !d.buckets || !d.buckets.length) return;
+  const cb = costBasisState.data;
+  const hasProfile = !!(d && d.buckets && d.buckets.length);
+  const hasCb = !!(cb && cb.available && cb.delta && cb.delta.length && cb.bucket_usd > 0);
+  // Two independent payloads share this one primitive. Neither may take the
+  // other down with it: if the profile fails to load, the cost-basis layer
+  // still has to paint, and vice versa.
+  if (!hasProfile && !hasCb) { costBasisState.drawn = null; return; }
   target.useMediaCoordinateSpace(({ context: ctx, mediaSize }) => {
-    const w = d.bucket_usd, right = mediaSize.width, H = mediaSize.height;
+    const right = mediaSize.width, H = mediaSize.height;
+    const maxLen = right * 0.34;              // never swamp the candles
+
+    // Cost-basis delta bars: which acquisition-price cohorts GREW and which were
+    // SPENT between the two stamped dates. Left-anchored at x = 0 growing
+    // rightward — opposite the tape bars — so the two layers cannot collide and
+    // no midline bookkeeping is needed. Drawn before the profile body so it sits
+    // behind the value-area band, and first so it does not depend on it.
+    if (hasCb) {
+      drawCostBasis(ctx, right, H, maxLen);
+    } else {
+      costBasisState.drawn = null;
+    }
+    if (!hasProfile) return;
+
+    const w = d.bucket_usd;
     let maxQ = 0;
     for (const b of d.buckets) if (b.q > maxQ) maxQ = b.q;
     if (!(maxQ > 0)) return;
-    const maxLen = right * 0.34;              // never swamp the candles
+
 
     // URPD silhouette: on-chain supply by cost basis, drawn BEHIND the tape bars.
     // A different measure AND a different granularity ($200 buckets, one snapshot),
@@ -311,6 +349,64 @@ function drawProfile(target) {
     if (d.realized_price)
       level(d.realized_price.value, AMBER, `realized ${fmtNum(d.realized_price.value, 0)}`);
   });
+}
+/* Cost-basis delta bars: which acquisition-price cohorts GREW and which were
+ * SPENT between the two stamped dates. Left-anchored at x = 0 growing rightward
+ * — opposite the tape bars — so the two layers cannot collide and no midline
+ * bookkeeping is needed. */
+function drawCostBasis(ctx, right, H, maxLen) {
+  const cb = costBasisState.data;
+  const cw = cb.bucket_usd;
+  // 1) Regrid the fine $200 grid up to what this zoom can actually show. At a
+  // full-history zoom one $200 bucket is a fraction of a pixel, so the fine grid
+  // would draw nothing at all (every bar culled by the same boundary guard the
+  // tape uses). The tape profile solves this server-side with a display width;
+  // this layer is a snapshot that has to answer to zoom without a refetch, so it
+  // regrids here on every repaint instead.
+  const pTop = candleSeries.coordinateToPrice(0);
+  const pBot = candleSeries.coordinateToPrice(H);
+  let mult = 1;
+  if (pTop !== null && pBot !== null && pTop > pBot) {
+    mult = Math.max(1, Math.ceil((pTop - pBot) / cw / 140));      // ~140 rows
+    const NICE = [1, 2, 5, 10, 20, 25, 50, 100, 125, 250, 500, 1000, 2500];
+    mult = NICE.find(m => m >= mult) || mult;
+  }
+  const aggW = cw * mult;
+  const groups = new Map();
+  for (const x of cb.delta) {
+    const k = Math.floor(x.p / aggW);
+    let g = groups.get(k);
+    if (!g) { g = { p: k * aggW, d: 0, past: 0, now: 0 }; groups.set(k, g); }
+    g.d += x.d;                                       // delta is additive supply
+    g.past += (x.past || 0);
+    g.now += (x.now || 0);
+  }
+  const rows = Array.from(groups.values());
+  // the tooltip reads the SAME grouping that was drawn, so the price band it
+  // names is always the band under the cursor
+  costBasisState.drawn = { w: aggW, rows };
+
+  let maxAbs = 0;
+  for (const g of rows) { const a = Math.abs(g.d); if (a > maxAbs) maxAbs = a; }
+  if (!(maxAbs > 0)) return;
+  // 2) ONE symmetric scale for both directions, so a bar twice as long is twice
+  // the BTC. Normalising accumulation and distribution against their own maxima
+  // would misrepresent their relative size.
+  const maxLenC = maxLen * 0.95;
+  for (const g of rows) {
+    if (!g.d || g.d !== g.d) continue;
+    const yTop = candleSeries.priceToCoordinate(g.p + aggW);
+    const yBot = candleSeries.priceToCoordinate(g.p);
+    if (yTop === null || yBot === null) continue;
+    if (yBot <= 0 || yTop >= H) continue;     // same boundary guard as the tape
+    const bh = yBot - yTop;
+    if (bh < 0.5) continue;
+    const len = (Math.abs(g.d) / maxAbs) * maxLenC;
+    if (len < 0.5) continue;
+    ctx.fillStyle = g.d > 0 ? "rgba(38, 166, 154, 0.62)"          // accumulation
+                            : "rgba(239, 83, 80, 0.62)";          // distribution
+    ctx.fillRect(0, yTop, len, Math.max(0.5, bh - 0.5));
+  }
 }
 const profilePrimitive = {
   paneViews() {
@@ -425,6 +521,7 @@ async function loadInterval() {
   renderMarkers();
   updateStatus();
   await loadProfile();
+  await loadCostBasis();
   chart.timeScale().scrollToRealTime();
 }
 async function loadOlder() {
@@ -517,7 +614,7 @@ chart.subscribeCrosshairMove(param => {
   tooltip.innerHTML = `<h3>${fmtTs(openTime, S.interval)} · ${mkt}${b.cross_filled ? " · cross-filled" : ""}${b.follows_gap ? " · follows gap" : ""}${b.live ? " · ⚠" : ""}</h3>
     <div class="ohlc"><span>O ${fmtNum(b.open, 4)}</span><span>H <b style="color:${UP}">${fmtNum(b.high, 4)}</b></span>
     <span>L <b style="color:${DOWN}">${fmtNum(b.low, 4)}</b></span><span>C ${fmtNum(b.close, 4)}</span></div>
-    <table>${rows.join("")}${profileTooltipRow(param.point.y)}</table>${liveNote}`;
+    <table>${rows.join("")}${profileTooltipRow(param.point.y)}${costBasisTooltipRow(param.point.y)}</table>${liveNote}`;
   tooltip.style.display = "block";
   const pad = 14, tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
   let x = param.point.x + pad, y = param.point.y + pad;
@@ -545,8 +642,10 @@ function updateStatus() {
     <span id="status-source"></span>
     <span id="status-large"></span>
     <span id="status-profile"></span>
+    <span id="status-cb"></span>
     <span class="mkt-note">OHLC: spot → 2024-12-31, then futures UM → latest (refreshed before each session)</span>`;
-  updateProfileStatus();   // the span above was just replaced; refill it
+  updateProfileStatus();   // the spans above were just replaced; refill them
+  updateCostBasisStatus();
 }
 
 /* ---------------- controls ---------------- */
@@ -636,8 +735,10 @@ function updateProfileStatus() {
   if (!d) return;
   const va = d.value_area || {};
   const rp = d.realized_price ? ` · <b>$${fmtNum(d.realized_price.value, 0)}</b> realized` : "";
+  // the snapshot's own vintage, NOT captured_utc — that field is the fetch date
+  // and is months later, which the old label silently passed off as the vintage
   const ur = d.urpd && d.urpd.buckets
-    ? ` · <span class="legend-urpd">on-chain cost basis</span> ${String(d.urpd.captured_utc).slice(0, 10)}`
+    ? ` · <span class="legend-urpd">on-chain cost basis</span> to ${d.urpd.data_vintage || "—"} (source frozen)`
     : "";
   el.innerHTML = `<span>Profile <b>${d.window}</b> (${d.n_days}d to ${d.as_of}) — `
     + `bars: traded notional / $${fmtNum(d.bucket_usd, 0)} · `
@@ -681,6 +782,91 @@ function buildProfileButtons() {
     wrap.appendChild(b);
   }
 }
+/* ---------------- cost basis (on-chain URPD) ----------------
+ * Same load/control/status/tooltip shape as the volume profile above, but a
+ * separate window control on purpose: this answers "who is selling at what cost"
+ * from on-chain supply, not "where did volume trade" from the futures tape, and
+ * the two windows are legitimately different questions.
+ * BTC-only — URPD needs per-UTXO data, so ETH returns the honest unavailable. */
+async function loadCostBasis() {
+  const key = S.symbol + "_" + S.cbWindow;
+  try {
+    let d = S.cbCache.get(key);
+    if (!d) {
+      d = await api(`/api/cost_basis?symbol=${S.symbol}&window=${S.cbWindow}`);
+      S.cbCache.set(key, d);
+    }
+    costBasisState.data = d;
+  } catch (e) {
+    costBasisState.data = null;
+    const el = document.getElementById("status-cb");
+    if (el) el.innerHTML = `<span class="mkt-note">Cost basis unavailable — ${e.message}</span>`;
+    requestRedraw();
+    return;
+  }
+  requestRedraw();
+  updateCostBasisStatus();
+}
+function updateCostBasisStatus() {
+  const el = document.getElementById("status-cb");
+  if (!el) return;
+  const d = costBasisState.data;
+  if (!d) return;
+  if (!d.available) {
+    el.innerHTML = `<span class="mkt-note">Cost basis unavailable — ${d.note || ""}</span>`;
+    return;
+  }
+  const net = d.net_delta_btc;
+  const dir = net >= 0 ? "net accumulation" : "net distribution";
+  el.innerHTML = `<span>Cost basis <b>${d.window}</b> `
+    + `(${d.prev_as_of} → ${d.as_of}, ${d.span_days}d) — `
+    + `<span class="legend-cb">Δ supply / $${fmtNum(d.bucket_usd, 0)} bucket</span> · `
+    + `<b>${net >= 0 ? "+" : ""}${fmtNum(net)} BTC</b> ${dir} · `
+    + `<span class="mkt-note">data to ${d.data_vintage} (source frozen) — history, not a live reading</span></span>`;
+}
+function costBasisTooltipRow(paneY) {
+  const d = costBasisState.data;
+  if (!d || !d.available || !d.delta || !d.delta.length) return "";
+  // read the grouping the last draw actually used: zooming regrids the bars, and
+  // a tooltip naming a $200 band while $2,000-wide bars are on screen would lie.
+  // Between a repaint and a hover the price range cannot have changed, so the
+  // cached grouping is exactly what is under the cursor.
+  const drawn = costBasisState.drawn;
+  const w = (drawn && drawn.w) || d.bucket_usd;
+  const rows = (drawn && drawn.rows) || d.delta;
+  if (!(w > 0)) return "";
+  const price = candleSeries.coordinateToPrice(paneY);
+  if (price === null || price === undefined || !isFinite(price)) return "";
+  const lbl = `<tr><td class="k src-label">Cost basis <span class="src-meta">`
+    + `${d.window} · on-chain URPD · to ${d.data_vintage}</span></td>`;
+  const x = rows.find(v => Math.floor(v.p / w) === Math.floor(price / w));
+  if (!x) return lbl + `<td class="v na">no supply bucket at this price</td></tr>`;
+  const acc = x.d > 0;
+  return lbl
+    + `<td class="v"><span class="${acc ? "cb-acc" : "cb-dist"}">`
+    + `${acc ? "+" : ""}${fmtNum(x.d)} BTC ${acc ? "accumulated" : "distributed"}</span>`
+    + `<br><span class="src-meta">$${fmtNum(x.p, 0)}–$${fmtNum(x.p + w, 0)} · `
+    + `supply ${fmtNum(x.past)} → ${fmtNum(x.now)} BTC · ${d.prev_as_of}→${d.as_of}</span></td></tr>`;
+}
+function buildCostBasisButtons() {
+  const wrap = document.getElementById("cb-window");
+  if (!wrap) return;
+  const windows = ["14d", "30d", "90d", "180d", "365d"];
+  wrap.innerHTML = "";
+  for (const w of windows) {
+    const b = document.createElement("button");
+    b.textContent = w;
+    b.dataset.cw = w;
+    if (w === S.cbWindow) b.classList.add("active");
+    b.addEventListener("click", () => {
+      S.cbWindow = w;
+      localStorage.setItem("vsa_cb_window", w);
+      wrap.querySelectorAll("button").forEach(x => x.classList.toggle("active", x.dataset.cw === w));
+      loadCostBasis();
+    });
+    wrap.appendChild(b);
+  }
+}
 let visibleTimer = null;
 chart.timeScale().subscribeVisibleTimeRangeChange(r => {
   if (!r || !r.from || !r.to) return;
@@ -693,16 +879,71 @@ chart.timeScale().subscribeVisibleTimeRangeChange(r => {
   visibleTimer = setTimeout(refreshBreakdown, 250);
 });
 
-/* ---------------- holder panel ---------------- */
+/* ---------------- holder panel ----------------
+ * LTH/STH cohorts, supply in profit vs loss, SOPR and STH valuation. This is
+ * genuine per-UTXO age data — but computed by checkonchain's node, not ours
+ * (this project has never run one; that was the unapproved Phase 8 gate), and
+ * it stops at the upstream repo's freeze date. Every card is stamped with that
+ * date so a stale reading is never mistaken for a live one. */
+function nf(v, d) {
+  return (v === null || v === undefined || isNaN(v)) ? "—" : Number(v).toFixed(d);
+}
+function share(part, whole) {
+  return (part === null || part === undefined || !whole) ? null : part / whole;
+}
 async function loadHolder() {
   const box = document.getElementById("holder-content");
   try {
     const h = await api(`/api/onchain_snapshot?symbol=${S.symbol}`);
+    const H = h.holder || {};
+    const vintage = H.data_vintage || "—";
+    const stamp = `<div class="vintage">checkonchain, data to ${vintage}</div>`;
     let html = `<div class="holder-grid">`;
-    html += `<div class="holder-card"><h3>Long-Term / Short-Term Holder Cohorts</h3>
-      <div class="holder-row"><span>LTH supply share</span><span class="na">not yet available</span></div>
-      <div class="holder-row"><span>STH supply share</span><span class="na">not yet available</span></div>
-      <div class="holder-note">${h.note || h.lth_sth_note || ""}</div></div>`;
+
+    if (!H.available) {
+      html += `<div class="holder-card"><h3>Long-Term / Short-Term Holder Cohorts</h3>
+        <div class="holder-row"><span>Age-cohort data</span><span class="na">not available</span></div>
+        <div class="holder-note">${H.note || "not available"}</div></div>`;
+    } else {
+      const lp = H.lth_supply_pct, sp = H.sth_supply_pct;
+      const haveSplit = lp !== null && lp !== undefined && sp !== null && sp !== undefined;
+      html += `<div class="holder-card"><h3>Long-Term / Short-Term Holder Cohorts</h3>`;
+      if (haveSplit) {
+        html += `<div class="split">
+          <div class="seg seg-lth" style="width:${(lp * 100).toFixed(2)}%"></div>
+          <div class="seg seg-sth" style="width:${(sp * 100).toFixed(2)}%"></div></div>`;
+      }
+      html += `<div class="holder-row"><span><span class="legend-urpd">LTH</span> — long-term holders</span>
+        <span><b>${fmtNum(H.lth_supply_btc)} BTC</b> · ${fmtPct(lp)}</span></div>
+      <div class="holder-row"><span><span class="legend-tape">STH</span> — short-term holders</span>
+        <span><b>${fmtNum(H.sth_supply_btc)} BTC</b> · ${fmtPct(sp)}</span></div>
+      <div class="holder-note">Which coins have not moved for a long time, and which are
+        recently acquired. Split by UTXO age, computed by checkonchain from their own
+        node — this project has never run one.</div>${stamp}</div>`;
+
+      const lthP = share(H.lth_profit_btc, H.lth_supply_btc);
+      const sthP = share(H.sth_profit_btc, H.sth_supply_btc);
+      html += `<div class="holder-card"><h3>Supply in Profit vs Loss, by Cohort</h3>
+        <div class="holder-row"><span>LTH in profit</span><span><span class="cb-acc">${fmtNum(H.lth_profit_btc)} BTC</span>${lthP !== null ? ` · ${fmtPct(lthP)} of LTH` : ""}</span></div>
+        <div class="holder-row"><span>LTH in loss</span><span><span class="cb-dist">${fmtNum(H.lth_loss_btc)} BTC</span></span></div>
+        <div class="holder-row"><span>STH in profit</span><span><span class="cb-acc">${fmtNum(H.sth_profit_btc)} BTC</span>${sthP !== null ? ` · ${fmtPct(sthP)} of STH` : ""}</span></div>
+        <div class="holder-row"><span>STH in loss</span><span><span class="cb-dist">${fmtNum(H.sth_loss_btc)} BTC</span>${H.sth_underwater_pct !== null && H.sth_underwater_pct !== undefined ? ` · ${fmtPct(H.sth_underwater_pct)} of STH` : ""}</span></div>
+        <div class="holder-note">"In profit" means price is above the price the coin last
+          moved at — i.e. its owner's cost basis. A cohort mostly in loss is the one whose
+          supply is the sell pressure to watch, because selling there realises a loss.</div>${stamp}</div>`;
+
+      const sopr = H.sopr, soprE = H.sopr_ema_7d;
+      html += `<div class="holder-card"><h3>Spent Output Profit Ratio + STH Valuation</h3>
+        <div class="holder-row"><span>SOPR</span><span><b>${nf(sopr, 4)}</b>${sopr === null || sopr === undefined ? "" : (sopr >= 1 ? " · coins spent in profit" : " · coins spent at a loss")}</span></div>
+        <div class="holder-row"><span>SOPR, 7-day EMA</span><span>${nf(soprE, 4)}${soprE === null || soprE === undefined ? "" : (soprE >= 1 ? "" : ` <span class="cb-dist">below 1 — sellers realising losses</span>`)}</span></div>
+        <div class="holder-row"><span>STH-MVRV</span><span>${nf(H.sth_mvrv, 3)}</span></div>
+        <div class="holder-row"><span>STH realized price</span><span>${fmtUsd(H.sth_realized_price_usd)}</span></div>
+        <div class="holder-row"><span>Price</span><span><b>${fmtUsd(H.price_usd)}</b></span></div>
+        <div class="holder-note">SOPR &gt; 1: coins spent that day moved at a profit, &lt; 1
+          at a loss. STH-MVRV &lt; 1 means the average recent buyer is underwater — price
+          below the STH realized price, which is the average cost basis of the STH cohort
+          (coins younger than the short-term age threshold) weighted by when each moved.</div>${stamp}</div>`;
+    }
     const r = h.exchange_reserve_estimate;
     if (r && r.series && r.series.length) {
       const pts = r.series.map(([ms, v]) => ({ ms, v }));
@@ -730,14 +971,18 @@ async function loadHolder() {
         `<div class="urpd-row"><span style="width:110px">≤ $${fmtNum(b.price_bucket_usd, 0)}</span>
          <div class="bar" style="width:${Math.round(b.supply_btc / maxB * 120)}px"></div>
          <span class="amt">${fmtNum(b.supply_btc)} BTC</span></div>`).join("");
-      html += `<div class="holder-card"><h3>URPD Snapshot (${h.urpd.captured_utc.slice(0, 10)}, ${h.urpd.n_buckets} buckets)</h3>
+      html += `<div class="holder-card"><h3>Heaviest Cost-Basis Buckets (${h.urpd.data_vintage || "—"}, ${h.urpd.n_buckets} buckets)</h3>
         <div class="urpd-bars">${rows}</div>
-        <div class="holder-note">${h.urpd.note} · total supply ${fmtNum(h.urpd.total_supply_btc)} BTC</div></div>`;
+        <div class="holder-note">${h.urpd.note} · total supply ${fmtNum(h.urpd.total_supply_btc)} BTC</div>
+        <div class="holder-note">The ten price levels holding the most supply. The
+          <span class="legend-cb">cost-basis overlay</span> on the chart shows how each of
+          these buckets changed over a chosen window.</div></div>`;
     } else {
-      html += `<div class="holder-card"><h3>URPD Snapshot</h3>
+      html += `<div class="holder-card"><h3>Cost-Basis Buckets</h3>
         <div class="holder-row"><span>Available</span><span class="na">${h.urpd ? h.urpd.note : "not available"}</span></div></div>`;
     }
-    html += `</div><div class="holder-note">As-of: ${h.as_of || "—"} · ${h.data_availability}</div>`;
+    html += `</div><div class="holder-note">${h.data_availability}
+      <span class="vintage-warn">Panel data is a historical vintage, not a live reading.</span></div>`;
     box.innerHTML = html;
   } catch (e) {
     box.innerHTML = `<div class="holder-empty">holder panel failed to load: ${e.message}</div>`;
@@ -763,6 +1008,7 @@ document.getElementById("holder-panel").addEventListener("toggle", () => {
     buildIntervalButtons();
     document.getElementById("intervals").querySelector(`[data-iv="${S.interval}"]`)?.classList.add("active");
     buildProfileButtons();
+    buildCostBasisButtons();
     populateSymbolSelect();
     await loadInterval();
     await loadHolder();

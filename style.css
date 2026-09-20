@@ -33,6 +33,17 @@ select, .btn-group button {
 .ctl-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
 .legend-tape { color: var(--amber); }
 .legend-urpd { color: var(--purple); }
+.legend-cb { color: var(--text); }
+.cb-acc { color: var(--green); }
+.cb-dist { color: var(--red); }
+/* cohort split bar: LTH vs STH share of supply */
+.split { display: flex; height: 12px; border-radius: 2px; overflow: hidden; margin: 4px 0 6px; }
+.split .seg { height: 100%; }
+.split .seg-lth { background: var(--purple); }
+.split .seg-sth { background: var(--amber); }
+/* vintage stamp: the data is real but stale, so it must not read as a footnote */
+.vintage { font-size: 10px; color: var(--muted); font-style: italic; }
+.vintage-warn { font-size: 11px; color: var(--amber); }
 main { display: flex; flex-direction: column; }
 #chart { width: 100%; height: 62vh; }
 .statusbar {
