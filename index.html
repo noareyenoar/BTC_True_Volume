@@ -43,12 +43,14 @@
     <div class="profile-wrap">
       <span class="ctl-label">Markers</span>
       <!-- Candle annotations. Drawn across the whole loaded range, so at 1h/1d
-           they cover the candles; these switch the paint, not the data. Choice
-           is remembered (vsa_markers_large / vsa_markers_fills). -->
+           they cover the candles; these switch the paint, not the data. Off by
+           default (the chart must open legible) and remembered once chosen
+           (vsa_markers_large_v2 / vsa_markers_fills_v2 — see MARKER_TOGGLES in
+           app.js, which owns both the read and the write). -->
       <div id="marker-toggles" class="btn-group"
-           title="Candle annotations. Switching one off repaints the chart only — the breakdown data and the status counts are unchanged.">
-        <button id="mk-large" type="button" aria-pressed="true">large</button>
-        <button id="mk-fills" type="button" aria-pressed="true">cross-filled</button>
+           title="Candle annotations, off by default. Switching one on repaints the chart only — the breakdown data and the status counts are unchanged.">
+        <button id="mk-large" type="button" aria-pressed="false">large</button>
+        <button id="mk-fills" type="button" aria-pressed="false">cross-filled</button>
       </div>
     </div>
     <div class="source-wrap">

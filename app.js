@@ -12,38 +12,59 @@ const UP = "#26a69a", DOWN = "#ef5350", MUTED = "#787b86", AMBER = "#f59e0b", PU
 // upstream -- so the backend computes it from two archived curves, and its
 // status line carries the coverage caveat that comes with that.
 // The 14-day window is retired upstream (the live host 404s it), so it is gone
-// here, from the API's own list, and from the buttons; a "14d" remembered in
-// localStorage from before the repoint is clamped below rather than left
-// selecting a window that can only answer with the unavailable state.
+// here, from the API's own list, and from the buttons; the remembered value is
+// validated against this list on every load, so a window this build cannot
+// answer falls back to the default rather than selecting a control that can only
+// render the unavailable state.
 const CB_WINDOWS = ["30d", "90d", "180d", "365d", "4y"];
+const CB_DEFAULT = "30d";
 
 const S = {
-  symbol: "BTCUSDT", interval: "1h",
+  // On entry the chart opens on daily bars -- see boot(), which adopts the
+  // interval from /api/symbols rather than trusting this literal.
+  symbol: "BTCUSDT", interval: "1d",
   bars: [], gapSlots: [], sourcesMeta: [], sourceOpts: [],
   breakdown: new Map(), breakdownPending: new Set(),
   range: { start: 0, end: 0 }, visible: null,
   source: localStorage.getItem("vsa_source") || "onchain_network_volume",
-  audited: [], defaultInterval: "1h",
+  audited: [], defaultInterval: "1d",
   holder: null, fetchSeq: 0,
   profileWindow: localStorage.getItem("vsa_profile_window") || "90d",
   profileCache: new Map(),
   // The cost-basis window is INDEPENDENT of the profile window: they measure
   // different things (traded notional vs supply that changed hands), so forcing
   // one control to drive both would silently couple two unrelated questions.
-  cbWindow: CB_WINDOWS.includes(localStorage.getItem("vsa_cb_window"))
-    ? localStorage.getItem("vsa_cb_window") : "90d",
+  cbWindow: CB_WINDOWS.includes(localStorage.getItem("vsa_cb_window_v2"))
+    ? localStorage.getItem("vsa_cb_window_v2") : CB_DEFAULT,
   cbCache: new Map(),
   // status-bar text that only the volume/marker renderers can compute. Held here,
   // not written straight to the DOM: updateStatus() rebuilds the bar wholesale,
   // so a span written before that rebuild is written into nothing. See
   // updateSourceStatus().
   statusSource: "", statusLarge: "",
-  // Candle annotations, on by default (they are the VSA signal) but switchable:
-  // drawn across the whole loaded range they bury the candles at 1h/1d zoom.
-  // A display switch only -- the breakdown data and the status counts stay.
-  markersLarge: localStorage.getItem("vsa_markers_large") !== "0",
-  markersFills: localStorage.getItem("vsa_markers_fills") !== "0",
+  // Candle annotations, OFF on entry. Drawn across the whole loaded range they
+  // bury the candles at 1h/1d zoom, which is the state the chart should open in;
+  // the toggles are there for when they are wanted. A display switch only -- the
+  // breakdown data and the status counts show either way.
+  // The keys are the authority for the toggle buttons too (MARKER_TOGGLES below),
+  // so the write and the read cannot drift apart.
+  markersLarge: localStorage.getItem("vsa_markers_large_v2") === "1",
+  markersFills: localStorage.getItem("vsa_markers_fills_v2") === "1",
 };
+
+// The marker toggles, as built into index.html. `skey` is the S flag, `ls` the
+// storage key -- both are read (sync) and written (click) through this one list.
+// The `_v2` suffix is deliberate: the v1 keys were written under the old
+// default-ON semantics and, for cross-filled, under a name the reader never
+// looked at (the id is "mk-fills" but the flag is `markersFills`), so nothing
+// stored under v1 can be read as today's intent -- a returning visitor would
+// otherwise never see the new default.
+const MARKER_TOGGLES = [
+  { id: "mk-large", name: "large", skey: "markersLarge", ls: "vsa_markers_large_v2",
+    label: "large-trade arrows (top-decile notional)" },
+  { id: "mk-fills", name: "cross-filled", skey: "markersFills", ls: "vsa_markers_fills_v2",
+    label: "cross-filled / gap labels" },
+];
 
 /* ---------------- helpers ---------------- */
 function fmtNum(v, digits = 2) {
@@ -158,7 +179,7 @@ async function api(path) {
   if (what === "cost_basis") {
     const cbf = STATIC.files.cost_basis;
     if (!cbf) throw new Error("this export has no cost-basis overlay — re-publish the site");
-    return loadJSONFile(cbf[sym + "_" + (q.window || "90d")]);
+    return loadJSONFile(cbf[sym + "_" + (q.window || CB_DEFAULT)]);
   }
   if (what === "ohlc") {
     const resp = await loadJSONFile(STATIC.files.bars[sym + "_" + iv]);
@@ -921,28 +942,23 @@ function buildLayerEyes() {
 /* Marker switches. Same segmented-button look as the window controls, because
  * they are the same kind of control: a remembered display choice. Annotations
  * span the whole loaded range, so at 1h/1d they cover the candles entirely --
- * turning them off must not touch the data, only the paint. */
+ * turning them off must not touch the data, only the paint. Both start off
+ * (MARKER_TOGGLES / the S flags above), so `sync` on a fresh visit paints the
+ * unpressed state and index.html's markup already agrees with it. */
 function buildMarkerToggles() {
-  const toggles = [
-    { id: "mk-large", name: "large", key: "markersLarge",
-      label: "large-trade arrows (top-decile notional)" },
-    { id: "mk-fills", name: "cross-filled", key: "markersFills",
-      label: "cross-filled / gap labels" },
-  ];
-  for (const t of toggles) {
+  for (const t of MARKER_TOGGLES) {
     const btn = document.getElementById(t.id);
     if (!btn) continue;
     btn.textContent = t.name;
     const sync = () => {
-      const on = S[t.key];
+      const on = S[t.skey];
       btn.classList.toggle("active", on);
       btn.setAttribute("aria-pressed", String(on));
       btn.title = (on ? "Hide" : "Show") + " " + t.label;
     };
     btn.addEventListener("click", () => {
-      S[t.key] = !S[t.key];
-      localStorage.setItem("vsa_markers_" + t.name.replace("-", "_"),
-                           S[t.key] ? "1" : "0");
+      S[t.skey] = !S[t.skey];
+      localStorage.setItem(t.ls, S[t.skey] ? "1" : "0");
       sync();
       renderMarkers();   // repaint only: breakdown data is untouched
     });
@@ -1164,7 +1180,7 @@ function buildCostBasisButtons() {
     if (w === S.cbWindow) b.classList.add("active");
     b.addEventListener("click", () => {
       S.cbWindow = w;
-      localStorage.setItem("vsa_cb_window", w);
+      localStorage.setItem("vsa_cb_window_v2", w);
       wrap.querySelectorAll("button").forEach(x => x.classList.toggle("active", x.dataset.cw === w));
       loadCostBasis();
     });
@@ -1309,7 +1325,15 @@ document.getElementById("holder-panel").addEventListener("toggle", () => {
         "re-open this page after the daily refresh+publish for full data.";
     const sym = await api("/api/symbols");
     S.audited = sym.audited;
-    S.defaultInterval = sym.default_interval;
+    // The interval on entry is the API's, not a literal in this file: daily bars
+    // are what the chart is read for, and the API is where the audited interval
+    // list lives. Adopted only if it is actually in that list, so a mismatch
+    // leaves the chart on a renderable interval instead of none.
+    if (sym.default_interval &&
+        (sym.audited || []).some(s => (s.intervals || []).includes(sym.default_interval))) {
+      S.defaultInterval = sym.default_interval;
+      S.interval = sym.default_interval;
+    }
     buildIntervalButtons();
     document.getElementById("intervals").querySelector(`[data-iv="${S.interval}"]`)?.classList.add("active");
     buildProfileButtons();
