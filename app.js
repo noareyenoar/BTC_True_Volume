@@ -7,12 +7,15 @@
 
 const UP = "#26a69a", DOWN = "#ef5350", MUTED = "#787b86", AMBER = "#f59e0b", PURPLE = "#b07dff";
 
-// Cost-basis windows the source publishes. The 14-day window is retired
-// upstream -- the live host 404s it -- so it is gone here, from the API's own
-// list, and from the buttons; a "14d" remembered in localStorage from before
-// the repoint is clamped below rather than left selecting a window that can
-// only answer with the unavailable state.
-const CB_WINDOWS = ["30d", "90d", "180d", "365d"];
+// Cost-basis windows the API can answer. The first four are the publisher's own
+// diffs; "4y" is the one window it never built -- there is no `urpd_diff_1460`
+// upstream -- so the backend computes it from two archived curves, and its
+// status line carries the coverage caveat that comes with that.
+// The 14-day window is retired upstream (the live host 404s it), so it is gone
+// here, from the API's own list, and from the buttons; a "14d" remembered in
+// localStorage from before the repoint is clamped below rather than left
+// selecting a window that can only answer with the unavailable state.
+const CB_WINDOWS = ["30d", "90d", "180d", "365d", "4y"];
 
 const S = {
   symbol: "BTCUSDT", interval: "1h",
@@ -991,10 +994,19 @@ function updateCostBasisStatus() {
   const px = (d.price_usd === null || d.price_usd === undefined) ? ""
     : ` · price ${fmtPx(d.price_usd)}${d.price_usd_prev === null || d.price_usd_prev === undefined
         ? "" : ` from ${fmtPx(d.price_usd_prev)}`}`;
+  // A window the publisher never built is computed here from two archived
+  // curves, and the older one's axis can stop below today's price range -- above
+  // that line every zone reads as accumulation simply because there is no
+  // "then" to compare against. Say so where the numbers are read.
+  const cover = (d.computed && d.prev_curve_covers_to_usd)
+    ? ` · <span class="mkt-note">computed locally from two archived curves; the `
+      + `${d.prev_as_of} curve ends at ${fmtPx(d.prev_curve_covers_to_usd)}, so `
+      + `every zone above that is accumulation since — not a like-for-like pair</span>`
+    : "";
   el.innerHTML = `<span>Cost basis <b>${d.window}</b> `
     + `(${d.prev_as_of} → ${d.as_of}, ${d.span_days}d) — `
     + `<span class="legend-cb">hollow = supply then, filled = supply now, cap = the change</span> · `
-    + `<b>${net >= 0 ? "+" : ""}${fmtNum(net)} BTC</b> ${dir}${px} · `
+    + `<b>${net >= 0 ? "+" : ""}${fmtNum(net)} BTC</b> ${dir}${px}${cover} · `
     + `<span class="mkt-note">on-chain supply, data to ${d.data_vintage} — a dated `
     + `measurement, not the live tape</span></span>`;
 }
