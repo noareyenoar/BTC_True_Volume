@@ -949,6 +949,11 @@ function applyCostBasisPriceLines() {
   if (worst) add(worst.p, "#ef5350", `biggest seller ${fmtPx(worst.p)}`);
 }
 
+/* Prices are quoted in full, not through fmtNum's K/M shorthand: the columns
+ * that use this exist to name an exact level, and "$84K" is both harder to scan
+ * against the chart's axis and lossy if the zone width ever drops below $1,000. */
+const fmtPx = v => `$${Math.round(v).toLocaleString("en-US")}`;
+
 /* Ranked "who moved" readout.
  *
  * The bars show the whole distribution at once, so at any usable zoom the
@@ -959,10 +964,6 @@ function applyCostBasisPriceLines() {
  *
  * Rows are $1,000 zones (see cbZones) so the rankings are price levels, not
  * fragments of one wall. */
-/* Prices are quoted in full, not through fmtNum's K/M shorthand: this column
- * exists to name an exact level, and "$84K" is both harder to scan against the
- * chart's axis and lossy if the zone width ever drops below $1,000. */
-const fmtPx = v => `$${Math.round(v).toLocaleString("en-US")}`;
 function renderCostBasisMovers() {
   const box = document.getElementById("cb-movers");
   if (!box) return;
@@ -973,8 +974,7 @@ function renderCostBasisMovers() {
       <span class="na">${d && d.note ? d.note : "not available"}</span></div></div>`;
     return;
   }
-  const all = cbZones();
-  if (!all) return;
+  const all = cbZones();   // non-null: the guard above is cbZones' own condition
   const px = d.price_usd;
   const sellers = all.filter(z => z.d < 0).sort((a, b) => a.d - b.d).slice(0, 6);
   const buyers = all.filter(z => z.d > 0).sort((a, b) => b.d - a.d).slice(0, 6);
@@ -996,7 +996,7 @@ function renderCostBasisMovers() {
     <div class="mover-group">SOLD OFF — cohorts that shrank</div>${sellers.map(row).join("")}
     <div class="mover-group">BOUGHT IN — cohorts that grew</div>${buyers.map(row).join("")}
     <div class="holder-note">
-      Each row is a $${fmtNum(CB_ZONE_USD, 0)} price zone: BTC of supply that
+      Each row is a ${fmtPx(CB_ZONE_USD)} price zone: BTC of supply that
       changed hands, and the share of what sat there before. <b>above</b> = that
       cohort's cost basis is higher than the price at the end of the window, so
       spending there realises a <span class="cb-dist">loss</span>;
