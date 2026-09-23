@@ -1,0 +1,1 @@
+{"symbol":"ETHUSDT","available":false,"metric":"etf_net_flow_usd","units":"USD","bucket":"1d","points":[],"first":null,"last":null,"last_session":null,"n":0,"source_chart":null,"data_vintage":null,"note":"spot BTC ETFs hold BTC — no ETH equivalent exists; this is not a proxy for ETH flows."}

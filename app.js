@@ -202,6 +202,14 @@ async function api(path) {
   const iv = q.interval || "1h";
   if (what === "symbols") return loadJSONFile(STATIC.files.symbols);
   if (what === "onchain_snapshot") return loadJSONFile(STATIC.files.onchain[sym]);
+  if (what === "etf_flows") {
+    // One file per symbol and no window: the series is daily, so it does not
+    // change with the chart interval. ETH's file is the endpoint's own
+    // honest-unavailable body, not an absent one the page must interpret.
+    const ef = STATIC.files.etf;
+    if (!ef) throw new Error("this export has no ETF flows — re-publish the site");
+    return loadJSONFile(ef[sym]);
+  }
   if (what === "volume_profile") {
     const pf = STATIC.files.profile;
     if (!pf) throw new Error("this export has no volume profile — re-publish the site");
@@ -658,6 +666,7 @@ async function loadInterval() {
   updateStatus();
   await loadProfile();
   await loadCostBasis();
+  renderEtf();   // its bars are clipped to the range just loaded
   chart.timeScale().scrollToRealTime();
 }
 async function loadOlder() {
@@ -750,7 +759,7 @@ chart.subscribeCrosshairMove(param => {
   tooltip.innerHTML = `<h3>${fmtTs(openTime, S.interval)} · ${mkt}${b.cross_filled ? " · cross-filled" : ""}${b.follows_gap ? " · follows gap" : ""}${b.live ? " · ⚠" : ""}</h3>
     <div class="ohlc"><span>O ${fmtNum(b.open, 4)}</span><span>H <b style="color:${UP}">${fmtNum(b.high, 4)}</b></span>
     <span>L <b style="color:${DOWN}">${fmtNum(b.low, 4)}</b></span><span>C ${fmtNum(b.close, 4)}</span></div>
-    <table>${rows.join("")}${profileTooltipRow(param.point.y)}${costBasisTooltipRow(param.point.y)}</table>${liveNote}`;
+    <table>${rows.join("")}${etfTooltipRow(openTime)}${profileTooltipRow(param.point.y)}${costBasisTooltipRow(param.point.y)}</table>${liveNote}`;
   tooltip.style.display = "block";
   const pad = 14, tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
   let x = param.point.x + pad, y = param.point.y + pad;
@@ -779,9 +788,11 @@ function updateStatus() {
     <span id="status-large"></span>
     <span id="status-profile"></span>
     <span id="status-cb"></span>
+    <span id="status-etf"></span>
     <span class="mkt-note">OHLC: spot → 2024-12-31, then futures UM → latest (refreshed before each session)</span>`;
   updateProfileStatus();   // the spans above were just replaced; refill them
   updateCostBasisStatus();
+  updateEtfStatus();
   updateSourceStatus();
   updateLargeStatus();
 }
@@ -831,7 +842,9 @@ function populateSourceSelect() {
   localStorage.setItem("vsa_source", S.source);
 }
 document.getElementById("symbol").addEventListener("change", e => {
-  S.symbol = e.target.value; loadInterval();
+  // The ETF flows are a different series per symbol (and absent for ETH), so the
+  // layer reloads with the symbol, unlike the interval which never changes it.
+  S.symbol = e.target.value; loadInterval(); loadEtf();
 });
 document.getElementById("source").addEventListener("change", e => {
   S.source = e.target.value;
@@ -956,6 +969,12 @@ function buildLayerEyes() {
     { id: "cb-eye", name: "costbasis", groups: ["cb-window", "cb-custom"],
       label: "cost-basis distribution", state: costBasisState,
       refresh: () => { applyCostBasisPriceLines(); requestRedraw(); } },
+    // No `groups`: this layer has no window control to dim, the eye is the whole
+    // control. Hiding it drops the hover row too (etfTooltipRow returns ""), the
+    // same contract the cost-basis layer keeps with its price lines.
+    { id: "etf-eye", name: "etf", groups: [],
+      label: "spot-ETF daily net flows", state: etfState,
+      refresh: () => { renderEtf(); } },
   ];
   for (const e of eyes) {
     const btn = document.getElementById(e.id);
@@ -1578,6 +1597,96 @@ chart.timeScale().subscribeVisibleTimeRangeChange(r => {
   visibleTimer = setTimeout(refreshBreakdown, 250);
 });
 
+/* ---------------- spot-ETF daily net flows ----------------
+ * The demand side of a move: net creations/redemptions across the US spot BTC
+ * ETFs, in USD, one point per calendar day since the first session (2024-01-11).
+ * Drawn as bars in the candle pane on their own overlay price scale — the same
+ * mechanism the volume histogram uses — so a $937M inflow day sits next to the
+ * candle it helped make, with no second pane and no second axis to read.
+ *
+ * Two things this layer must never imply:
+ *   * a 0.0 is a day the US market did not open, NOT a day with no flow
+ *     (upstream stamps weekends and holidays explicitly), and
+ *   * the newest day is provisional — upstream publishes it through the session,
+ *     so on our collection day it is usually still 0.0.
+ * BTC-only by construction: these are US ETFs holding BTC. ETH gets no layer.
+ *
+ * Points are clipped to the loaded range. The series is stamped daily (today)
+ * while the Vision candles lag ~1 day, and an unclipped point past the last
+ * candle would drag scrollToRealTime() into empty space at the right edge.
+ */
+const etfState = { data: null, byDay: new Map(), visible: layerVisible("etf"),
+                   series: null };
+async function loadEtf() {
+  const wrap = document.getElementById("etf-wrap");
+  try {
+    const d = await api(`/api/etf_flows?symbol=${S.symbol}`);
+    etfState.data = d && d.available ? d : null;
+  } catch (e) { etfState.data = null; }   // offline/blocked -> no layer, not a broken page
+  etfState.byDay = new Map((etfState.data ? etfState.data.points : []).map(p => [p[0], p[1]]));
+  // A switch that can only do nothing is worse than no switch: hide the control
+  // for a symbol the source cannot answer for (ETH), and say nothing else.
+  if (wrap) wrap.style.display = etfState.data ? "" : "none";
+  renderEtf();
+}
+function renderEtf() {
+  const d = etfState.data;
+  if (!etfState.series) {
+    if (!d || !S.bars.length) return;
+    etfState.series = chart.addHistogramSeries({
+      priceScaleId: "etf", base: 0, priceLineVisible: false, lastValueVisible: false,
+    });
+    // Signed bars grow up from $0 (inflows) and down from it (outflows) inside a
+    // band ABOVE the volume histogram, which owns the bottom 18% of the pane.
+    chart.priceScale("etf").applyOptions({
+      scaleMargins: { top: 0.66, bottom: 0.18 },
+      visible: false,   // overlay scale: no axis, the number is read on hover
+    });
+  }
+  const pts = [];
+  for (const [day, usd] of (d ? d.points : [])) {
+    const t = Date.parse(day + "T00:00:00Z") / 1000;
+    if (!S.bars.length || t * 1000 < S.range.start || t * 1000 > S.range.end) continue;
+    pts.push({ time: t, value: usd, color: usd >= 0 ? UP : DOWN });
+  }
+  etfState.series.setData(pts);
+  etfState.series.applyOptions({ visible: etfState.visible });
+  updateEtfStatus();
+}
+/* Kept in S and painted from updateEtfStatus(), like the other status spans: the
+ * span only exists inside the markup updateStatus() writes, and this can be
+ * called from a load path that ran before it. */
+function updateEtfStatus() {
+  const el = document.getElementById("status-etf");
+  const d = etfState.data;
+  S.statusEtf = "";
+  if (el && d) {
+    const ls = d.last_session;
+    S.statusEtf = `<span>ETF flows <b>${etfFlowText(ls && ls[1])}</b>`
+      + `${ls ? ` · ${ls[0]} (last session)` : ""}`
+      + `${etfState.visible ? "" : " <span class=\"mkt-note\">— hidden</span>"}</span>`;
+  }
+  if (el) el.innerHTML = S.statusEtf;
+}
+/* One money formatter for the tooltip and the status strip, so the same number
+ * never reads two ways. */
+function etfFlowText(usd) {
+  return (usd === null || usd === undefined || isNaN(usd)) ? "—"
+    : (usd > 0 ? "+" : usd < 0 ? "−" : "") + fmtUsd(Math.abs(usd));
+}
+function etfTooltipRow(openTime) {
+  const d = etfState.data;
+  if (!d || !etfState.visible) return "";   // a hidden layer makes no claims
+  const day = new Date(openTime).toISOString().slice(0, 10);
+  const v = etfState.byDay.get(day);
+  const key = `<td class="k src-label">ETF net flow (USD)<br><span class="src-meta">daily · US spot BTC ETFs · this day</span></td>`;
+  if (v === undefined) return `<tr>${key}<td class="v na">n/a — series starts ${d.first}</td></tr>`;
+  // 0.0 is "no session", not "no flow" -- the one reading that would turn a
+  // weekend into a signal.
+  if (!v) return `<tr>${key}<td class="v na">no US session (weekend/holiday)</td></tr>`;
+  return `<tr>${key}<td class="v" style="color:${v > 0 ? UP : DOWN}">${etfFlowText(v)}</td></tr>`;
+}
+
 /* ---------------- holder panel ----------------
  * LTH/STH cohorts, supply in profit vs loss, SOPR and STH valuation. This is
  * genuine per-UTXO age data — but computed by checkonchain's node, not ours
@@ -1722,6 +1831,7 @@ document.getElementById("holder-panel").addEventListener("toggle", () => {
     populateSymbolSelect();
     await loadInterval();
     await loadHolder();
+    await loadEtf();
   } catch (e) {
     document.getElementById("statusbar").textContent = "Failed to start: " + e.message;
   }

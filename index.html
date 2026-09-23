@@ -66,6 +66,21 @@
         <button id="mk-fills" type="button" aria-pressed="false">cross-filled</button>
       </div>
     </div>
+    <div class="profile-wrap" id="etf-wrap">
+      <span class="ctl-label">ETF flows (USD)</span>
+      <!-- Daily net creations/redemptions of the US spot BTC ETFs, drawn as
+           signed bars in the candle pane above the volume histogram. BTC-only —
+           app.js hides this whole control for a symbol the source cannot answer
+           for. Mouse over a candle for that day's flow. -->
+      <button id="etf-eye" class="eye" type="button" aria-pressed="true"
+              title="Hide the spot-ETF daily net flows">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <path d="M1 8C3.2 4.2 5.5 2.6 8 2.6S12.8 4.2 15 8c-2.2 3.8-4.5 5.4-7 5.4S3.2 11.8 1 8Z"/>
+          <circle cx="8" cy="8" r="2.3"/>
+          <line class="slash" x1="2.4" y1="13.6" x2="13.6" y2="2.4"/>
+        </svg>
+      </button>
+    </div>
     <div class="source-wrap">
       <select id="source" title="Volume definition driving the volume panel"></select>
       <span class="source-note">Exchange volume is prone to wash trading; on-chain settled
@@ -121,6 +136,13 @@
   available at all. A pair is served on the archive's own $200 price grid, finer than the
   published windows — which is why the <b>Who Moved</b> card still groups its rows into $1,000
   zones, so one wall of owners is one row rather than ten fragments.<br>
+  The <b>ETF flows</b> bars in the candle pane (above the volume histogram, toggle with the eye
+  beside the label) are the daily <b>net flows of the US spot BTC ETFs, in USD</b> — creations
+  minus redemptions, one bar per calendar day since the first session on <b>2024-01-11</b>, green
+  for a net inflow and red for a net outflow. That series is <b>daily and session-dated</b>: a
+  weekend or holiday carries an explicit <b>0</b>, which means the US market did not open —
+  <i>not</i> a day with no flow — and the newest day is provisional until upstream restates it.
+  Dollars, not BTC, so do not measure it against the BTC-denominated layers.<br>
   <span class="vintage-warn">Cost-basis and holder-cohort data comes from checkonchain's live
   charts and is current to the vintage stamped on each panel. The 14-day window is gone — the
   publisher retired it. Every <b>preset</b> window is the publisher's own subtraction except
