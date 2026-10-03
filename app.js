@@ -126,11 +126,45 @@ function fmtPct(v, sep = false) {
   const s = (v * 100).toFixed(1);
   return (sep ? Number(s).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : s) + "%";
 }
+/* Display format for every date the reader sees: day-month-year (24/08/2026).
+ * Payloads and the API stay ISO (2026-08-24) -- ISO sorts, compares, and is what
+ * both implementations of the cost-basis rule emit byte-for-byte (the node probe
+ * diffs them) -- so only the last step, the draw, is reformatted. A non-ISO
+ * string passes through untouched rather than being mangled into a date. */
+function fmtDay(iso) {
+  const s = String(iso === null || iso === undefined ? "" : iso);
+  return CB_ISO_RE.test(s) ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : (s || "—");
+}
+/* Server-built prose (the stores' refusal and snap notes) carries ISO dates
+ * inside a sentence. The payload must keep them that way; the page must not show
+ * them that way. Display-only, token by token. */
+function fmtDaysIn(s) {
+  return String(s === null || s === undefined ? "" : s)
+    .replace(/\d{4}-\d{2}-\d{2}/g, m => fmtDay(m));
+}
+/* The reader types dd/mm/yyyy; everything stored and sent is ISO. Generous about
+ * what it accepts (d/m/yyyy, dots or dashes as separators, and plain ISO) --
+ * the round-trip through Date is what makes accepting them safe: it rejects
+ * 31/02/2026 and month 13, which a regex alone cannot. */
+function parseDay(s) {
+  const t = String(s === null || s === undefined ? "" : s).trim();
+  let y, mo, d, m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t);
+  if (m) { y = m[1]; mo = m[2]; d = m[3]; }
+  else {
+    m = /^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})$/.exec(t);
+    if (!m) return null;
+    d = m[1]; mo = m[2]; y = m[3];
+  }
+  y = Number(y); mo = Number(mo); d = Number(d);
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+  return dt.toISOString().slice(0, 10);
+}
 function fmtTs(ms, interval) {
-  const d = new Date(ms);
+  const iso = new Date(ms).toISOString();
   return interval === "1d"
-    ? d.toISOString().slice(0, 10)
-    : d.toISOString().slice(0, 16).replace("T", " ");
+    ? fmtDay(iso.slice(0, 10))
+    : `${fmtDay(iso.slice(0, 10))} ${iso.slice(11, 16)}`;
 }
 function tag(conf) {
   const c = String(conf || "").toLowerCase();
@@ -352,6 +386,11 @@ const profileState = { data: null, visible: layerVisible("profile") };
 /* `drawn` caches the regridded bars the last paint actually drew, so the tooltip
  * names the same price band the user is pointing at (see drawProfile). */
 const costBasisState = { data: null, drawn: null, visible: layerVisible("costbasis") };
+/* The volume histogram — the pane the source select drives (not the right-edge
+ * tape profile, which is `profileState` above). Its own eye, like the others: a
+ * hidden layer is a remembered display choice, and the breakdown, the hover rows
+ * and the strip keep reporting either way. */
+const volState = { visible: layerVisible("volume") };
 const AMBER_RGB = [245, 158, 11], GREEN_RGB = [38, 166, 154], RED_RGB = [239, 83, 80];
 function mixRgb(a, b, t) {
   t = Math.max(0, Math.min(1, t));
@@ -585,6 +624,14 @@ function volColor(b) {
   }
   return b.close >= b.open ? UP : DOWN;
 }
+/* Which series the volume eye owns. The split source swaps the single histogram
+ * for two taker series, so visibility has to reach whichever exist right now —
+ * renderVolume() calls this after every rebuild. */
+function applyVolumeVisibility() {
+  volSeries.applyOptions({ visible: volState.visible });
+  if (takerBuySeries) takerBuySeries.applyOptions({ visible: volState.visible });
+  if (takerSellSeries) takerSellSeries.applyOptions({ visible: volState.visible });
+}
 function renderVolume() {
   const single = S.source !== "taker_buy_sell_split";
   if (takerBuySeries) { chart.removeSeries(takerBuySeries); takerBuySeries = null; }
@@ -616,6 +663,7 @@ function renderVolume() {
   if (!single) {
     chart.priceScale("").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
   }
+  applyVolumeVisibility();
   S.statusSource = sourceLabel(S.source) +
     (data.length && data.every(d => d.value === null) ? " (no data in loaded range)" : "");
   updateSourceStatus();
@@ -825,7 +873,10 @@ function updateStatus() {
  * boot with "Cannot set properties of null (setting 'textContent')". */
 function updateSourceStatus() {
   const el = document.getElementById("status-source");
-  if (el) el.textContent = S.statusSource;
+  if (el) {
+    el.innerHTML = S.statusSource
+      + (volState.visible ? "" : ' <span class="mkt-note">— hidden</span>');
+  }
 }
 function updateLargeStatus() {
   const el = document.getElementById("status-large");
@@ -925,9 +976,9 @@ function updateProfileStatus() {
   // and is months later, which the old label silently passed off as the vintage
   const ur = d.urpd && d.urpd.buckets
     ? ` · <span class="legend-urpd">on-chain cost basis</span> to `
-      + `${d.urpd.data_vintage || "— (frozen fallback store)"}`
+      + `${d.urpd.data_vintage ? fmtDay(d.urpd.data_vintage) : "— (frozen fallback store)"}`
     : "";
-  el.innerHTML = `<span>Profile <b>${d.window}</b> (${d.n_days}d to ${d.as_of}) — `
+  el.innerHTML = `<span>Profile <b>${d.window}</b> (${d.n_days}d to ${fmtDay(d.as_of)}) — `
     + `bars: traded notional / $${fmtNum(d.bucket_usd, 0)} · `
     + `POC <b>$${fmtNum(d.poc, 0)}</b> · value area <b>$${fmtNum(va.low, 0)}–$${fmtNum(va.high, 0)}</b>`
     + rp + ur + `</span>`;
@@ -984,6 +1035,12 @@ function buildLayerEyes() {
   // the preset buttons and the custom date pair -- and an eye that dimmed only
   // one of them would leave the other looking active over a hidden layer.
   const eyes = [
+    // The volume histogram has no window control of its own to dim -- the select
+    // it IS driven by keeps working (and dims) with it, the same contract the
+    // cost-basis eye keeps with its window buttons.
+    { id: "vol-eye", name: "volume", groups: ["source"],
+      label: "volume histogram", state: volState,
+      refresh: () => { applyVolumeVisibility(); updateSourceStatus(); } },
     { id: "profile-eye", name: "profile", groups: ["profile-window"],
       label: "right-edge volume profile", state: profileState,
       refresh: () => requestRedraw() },
@@ -1536,8 +1593,8 @@ async function loadCostBasis() {
  * hide which window was requested. */
 function cbWindowLabel(d) {
   return d.requested_from
-    ? `${d.requested_from} → ${d.requested_to}`
-    : (d.window_label || d.window);
+    ? `${fmtDay(d.requested_from)} → ${fmtDay(d.requested_to)}`
+    : fmtDaysIn(d.window_label || d.window);
 }
 function updateCostBasisStatus() {
   const el = document.getElementById("status-cb");
@@ -1547,10 +1604,10 @@ function updateCostBasisStatus() {
   if (!d.available) {
     // both refusals, when there are two: the preferred store declining a pair is
     // half the answer to "why can't I see these dates" (see app.cost_basis)
-    el.innerHTML = `<span class="mkt-note">Cost basis unavailable — ${d.note || ""}`
+    el.innerHTML = `<span class="mkt-note">Cost basis unavailable — ${fmtDaysIn(d.note || "")}`
       + (d.dated_reason
           ? ` The publisher's own dated curves could not answer it either: `
-            + `${d.dated_reason}` : "")
+            + `${fmtDaysIn(d.dated_reason)}` : "")
       + `</span>`;
     return;
   }
@@ -1569,7 +1626,7 @@ function updateCostBasisStatus() {
   const cover = (d.computed && d.prev_curve_covers_to_usd
                  && (top === null || d.prev_curve_covers_to_usd < top))
     ? ` · <span class="mkt-note">computed locally from two stored curves; the `
-      + `${d.prev_as_of} curve ends at ${fmtPx(d.prev_curve_covers_to_usd)}, so `
+      + `${fmtDay(d.prev_as_of)} curve ends at ${fmtPx(d.prev_curve_covers_to_usd)}, so `
       + `every zone above that is accumulation since — not a like-for-like pair</span>`
     : "";
   /* Which store answered, and whether the dates moved. A custom pair must not
@@ -1591,10 +1648,10 @@ function updateCostBasisStatus() {
         + `</span>`
       : "";
   el.innerHTML = `<span>Cost basis <b>${cbWindowLabel(d)}</b> `
-    + `(${d.prev_as_of} → ${d.as_of}, ${d.span_days}d) — `
+    + `(${fmtDay(d.prev_as_of)} → ${fmtDay(d.as_of)}, ${d.span_days}d) — `
     + `<span class="legend-cb">hollow = supply then, filled = supply now, cap = the change</span> · `
     + `<b>${net >= 0 ? "+" : ""}${fmtNum(net)} BTC</b> ${dir}${px}${cover}${src} · `
-    + `<span class="mkt-note">on-chain supply, data to ${d.data_vintage} — a dated `
+    + `<span class="mkt-note">on-chain supply, data to ${fmtDay(d.data_vintage)} — a dated `
     + `measurement, not the live tape</span></span>`;
 }
 function costBasisTooltipRow(paneY) {
@@ -1612,7 +1669,7 @@ function costBasisTooltipRow(paneY) {
   const price = candleSeries.coordinateToPrice(paneY);
   if (price === null || price === undefined || !isFinite(price)) return "";
   const lbl = `<tr><td class="k src-label">Cost basis <span class="src-meta">`
-    + `${cbWindowLabel(d)} · on-chain URPD · to ${d.data_vintage}</span></td>`;
+    + `${cbWindowLabel(d)} · on-chain URPD · to ${fmtDay(d.data_vintage)}</span></td>`;
   const x = rows.find(v => Math.floor(v.p / w) === Math.floor(price / w));
   if (!x) return lbl + `<td class="v na">no supply bucket at this price</td></tr>`;
   const acc = x.d > 0;
@@ -1623,7 +1680,7 @@ function costBasisTooltipRow(paneY) {
     + `<td class="v"><span class="${acc ? "cb-acc" : "cb-dist"}">`
     + `${acc ? "+" : ""}${fmtNum(x.d)} BTC ${acc ? "accumulated" : "distributed"}</span>${pct}`
     + `<br><span class="src-meta">$${fmtNum(x.p, 0)}–$${fmtNum(x.p + w, 0)} · `
-    + `hollow ${fmtNum(x.past)} → filled ${fmtNum(x.now)} BTC · ${d.prev_as_of}→${d.as_of}</span></td></tr>`;
+    + `hollow ${fmtNum(x.past)} → filled ${fmtNum(x.now)} BTC · ${fmtDay(d.prev_as_of)}→${fmtDay(d.as_of)}</span></td></tr>`;
 }
 /* $1,000 zones, not the source's raw buckets: one cohort of owners is
  * spread across ~10 adjacent buckets, so ranking buckets shatters a single wall
@@ -1681,7 +1738,7 @@ function applyCostBasisPriceLines() {
       axisLabelVisible: true, title: title,
     }));
   };
-  add(d.price_usd, "#b07dff", `cost-basis vintage ${d.as_of}`);
+  add(d.price_usd, "#b07dff", `cost-basis vintage ${fmtDay(d.as_of)}`);
   // The heaviest distribution level — the cohort doing the most selling, named
   // on the axis so the "sell wall" is a price you can read straight off the
   // chart. Same zones the table ranks, so the two agree on the number.
@@ -1713,7 +1770,7 @@ function renderCostBasisMovers() {
   if (!d || !d.available || !d.delta || !d.delta.length) {
     box.innerHTML = `<div class="holder-card"><h3>Who Moved</h3>
       <div class="holder-row"><span>Cost-basis change</span>
-      <span class="na">${d && d.note ? d.note : "not available"}</span></div></div>`;
+      <span class="na">${d && d.note ? fmtDaysIn(d.note) : "not available"}</span></div></div>`;
     return;
   }
   const all = cbZones();   // non-null: the guard above is cbZones' own condition
@@ -1733,7 +1790,7 @@ function renderCostBasisMovers() {
       <span class="pct">${pct}</span>${side(z)}</div>`;
   };
   box.innerHTML = `<div class="holder-card"><h3>Who Moved — ${cbWindowLabel(d)} change</h3>
-    <div class="mover-head">${d.prev_as_of} → ${d.as_of}${
+    <div class="mover-head">${fmtDay(d.prev_as_of)} → ${fmtDay(d.as_of)}${
       px === null || px === undefined ? "" : ` · price ${fmtPx(px)}`}</div>
     <div class="mover-group">SOLD OFF — cohorts that shrank</div>${sellers.map(row).join("")}
     <div class="mover-group">BOUGHT IN — cohorts that grew</div>${buyers.map(row).join("")}
@@ -1745,9 +1802,9 @@ function renderCostBasisMovers() {
       <b>below</b> = realises a <span class="cb-acc">profit</span>.
       ${fmtNum(grossAcc)} BTC accumulated / ${fmtNum(grossDist)} BTC distributed,
       net ${d.net_delta_btc >= 0 ? "+" : ""}${fmtNum(d.net_delta_btc)} BTC.
-      Hollow outline on the chart is this cohort ${d.prev_as_of}, filled is ${d.as_of}.
+      Hollow outline on the chart is this cohort ${fmtDay(d.prev_as_of)}, filled is ${fmtDay(d.as_of)}.
     </div>
-    <div class="vintage">checkonchain, data to ${d.as_of}</div></div>`;
+    <div class="vintage">checkonchain, data to ${fmtDay(d.as_of)}</div></div>`;
 }
 
 /* The preset buttons and the custom date pair are ONE control: choosing either
@@ -1783,23 +1840,52 @@ function syncCostBasisControls() {
    * pair is placed in the boxes once, at boot, by buildCostBasisButtons. */
   if (!custom) return;
   const f = document.getElementById("cb-from"), t = document.getElementById("cb-to");
-  if (f && S.cbCustom) f.value = S.cbCustom.from;
-  if (t && S.cbCustom) t.value = S.cbCustom.to;
+  if (f && S.cbCustom) f.value = fmtDay(S.cbCustom.from);
+  if (t && S.cbCustom) t.value = fmtDay(S.cbCustom.to);
 }
 function cbStatusNote(msg) {
   const el = document.getElementById("status-cb");
   if (el) el.innerHTML = `<span class="mkt-note">${msg}</span>`;
 }
+/* The span the cost-basis stores answer, where the manifest is known: the UNION
+ * of the two stores, because between them they answer more than either alone --
+ * the publisher's dated curves reach the newest published day and 2016-01-01,
+ * the weekly archive 2016-01-03. Bounding by the archive alone would hide the
+ * days the dated store exists to serve -- the whole point of preferring it is
+ * the fresh end. Null in live mode: the archives are the server's, and an
+ * out-of-range date comes back naming the span rather than being silently
+ * unclickable. Checked at Apply because the boxes are typed text now, not
+ * pickers with min/max. */
+function cbStoreSpan() {
+  const meta = (STATIC && STATIC.cost_basis_archive || {})[S.symbol];
+  const dated = (STATIC && STATIC.cost_basis_dated || {})[S.symbol];
+  if (!meta && !dated) return null;
+  return {
+    first: dated && meta ? (dated.first < meta.first ? dated.first : meta.first)
+      : (dated || meta).first,
+    last: dated && meta ? (dated.last > meta.last ? dated.last : meta.last)
+      : (dated || meta).last,
+  };
+}
 /* Apply validates locally and says what is wrong in the strip rather than
- * sending a request that can only come back as the same complaint. */
+ * sending a request that can only come back as the same complaint. The boxes
+ * hold dd/mm/yyyy; the pair stored, cached and sent is ISO. */
 function applyCustomCostBasis() {
   const f = document.getElementById("cb-from"), t = document.getElementById("cb-to");
-  const from = f ? f.value : "", to = t ? t.value : "";
-  if (!CB_ISO_RE.test(from) || !CB_ISO_RE.test(to)) {
-    return cbStatusNote("Custom window needs both a start and an end date — pick both, then Apply.");
+  const from = parseDay(f ? f.value : ""), to = parseDay(t ? t.value : "");
+  if (!from || !to) {
+    return cbStatusNote("Custom window needs both dates as dd/mm/yyyy "
+      + "(e.g. 24/08/2026) — type both, then Apply.");
   }
   if (from >= to) {
-    return cbStatusNote(`Custom window: the start date (${from}) must be earlier than the end date (${to}).`);
+    return cbStatusNote(`Custom window: the start date (${fmtDay(from)}) must be `
+      + `earlier than the end date (${fmtDay(to)}).`);
+  }
+  const span = cbStoreSpan();
+  if (span && (from < span.first || to > span.last)) {
+    return cbStatusNote(`Custom window: the cost-basis stores answer `
+      + `${fmtDay(span.first)} → ${fmtDay(span.last)} — ${fmtDay(from)} → ${fmtDay(to)} `
+      + `is outside that span.`);
   }
   S.cbCustom = { from: from, to: to };
   localStorage.setItem("vsa_cb_custom_v1", JSON.stringify(S.cbCustom));
@@ -1808,6 +1894,142 @@ function applyCustomCostBasis() {
   syncCostBasisControls();
   loadCostBasis();
 }
+/* ---------------- pencil: drag the cost-basis window on the chart ----------------
+ * An alternative to typing the pair: press the pencil, drag across the chart, and
+ * the two x-positions become the window's two dates (UTC days — the same reading
+ * the axes, the storage and the API use). The band is drawn by its OWN primitive,
+ * not the profile primitive: that renderer early-returns when both layers have no
+ * data, and the selection band must be visible regardless of what is loaded
+ * behind it.
+ *
+ * Mouse-only on purpose ("click hold"): on a touch screen a drag is the chart's
+ * pan gesture, and stealing it would trade the whole chart for some typing. The
+ * pencil is also its own escape hatch -- a second press, or Esc, leaves pick mode
+ * without changing the window.
+ */
+const pickPrimitive = {
+  paneViews() {
+    return [{ zOrder: () => "top", renderer: () => ({ draw: drawPickBand }) }];
+  },
+};
+const pickState = { active: false, dragging: false, x0: 0, x1: 0, attached: false, savedStrip: null };
+/* The day under an x in the plot. coordinateToTime answers null outside the
+ * loaded range (empty chart, whitespace), so fall back to the nearest end of
+ * what IS loaded: a drag running off the edge then reads as the edge itself. */
+function pickDateAt(x) {
+  const ts = chart.timeScale();
+  const w = Math.max(ts.width() - 1, 0);
+  let t = ts.coordinateToTime(Math.min(Math.max(x, 0), w));
+  if (t === null || t === undefined) {
+    t = (S.range.start && x < ts.width() / 2) ? S.range.start / 1000 : S.range.end / 1000;
+  }
+  return new Date(Math.round(t * 1000)).toISOString().slice(0, 10);
+}
+function pickRedraw() {
+  if (!pickState.attached) return;
+  candleSeries.detachPrimitive(pickPrimitive);
+  candleSeries.attachPrimitive(pickPrimitive);
+}
+function drawPickBand(target) {
+  if (!pickState.active || !pickState.dragging) return;
+  const xa = Math.min(pickState.x0, pickState.x1), xb = Math.max(pickState.x0, pickState.x1);
+  target.useMediaCoordinateSpace(({ context: ctx, mediaSize }) => {
+    ctx.fillStyle = "rgba(41, 98, 255, 0.12)";
+    ctx.fillRect(xa, 0, xb - xa, mediaSize.height);
+    ctx.strokeStyle = "rgba(41, 98, 255, 0.7)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(xa + 0.5, 0.5, Math.max(xb - xa - 1, 0), mediaSize.height - 1);
+    // the label is the point of the exercise: the reader must see which two DATES
+    // the band covers before releasing, not discover it after
+    const label = `${fmtDay(pickDateAt(xa))} → ${fmtDay(pickDateAt(xb))}`;
+    ctx.font = "11px 'Segoe UI', system-ui, sans-serif";
+    const tw = ctx.measureText(label).width;
+    const tx = Math.min(Math.max(xa + (xb - xa - tw) / 2, 4), Math.max(mediaSize.width - tw - 4, 4));
+    ctx.fillStyle = "rgba(19, 23, 34, 0.92)";
+    ctx.fillRect(tx - 6, 6, tw + 12, 20);
+    ctx.strokeStyle = "rgba(41, 98, 255, 0.7)";
+    ctx.strokeRect(tx - 5.5, 6.5, tw + 11, 19);
+    ctx.fillStyle = "#d1d4dc";
+    ctx.fillText(label, tx, 20);
+  });
+}
+function setPickMode(on) {
+  if (on === pickState.active) return;
+  pickState.active = on;
+  pickState.dragging = false;
+  chartEl.classList.toggle("picking", on);
+  const btn = document.getElementById("cb-pick");
+  if (btn) {
+    btn.classList.toggle("on", on);
+    btn.setAttribute("aria-pressed", String(on));
+    btn.title = on
+      ? "Picking the window: drag across the chart (Esc cancels)"
+      : "Pick the window by dragging on the chart";
+  }
+  const strip = document.getElementById("status-cb");
+  if (on) {
+    // the hint replaces the strip while the mode is armed; the exact previous
+    // HTML is kept and put back on cancel, so nothing on it is rebuilt or lost
+    if (strip) pickState.savedStrip = strip.innerHTML;
+    cbStatusNote("Picking the cost-basis window — drag across the chart, release "
+      + "on the end date. The pencil or Esc cancels.");
+    if (!pickState.attached) { candleSeries.attachPrimitive(pickPrimitive); pickState.attached = true; }
+  } else {
+    if (pickState.attached) { candleSeries.detachPrimitive(pickPrimitive); pickState.attached = false; }
+    if (strip && pickState.savedStrip !== null) strip.innerHTML = pickState.savedStrip;
+    pickState.savedStrip = null;
+  }
+}
+/* The drag itself. mousedown is taken in the CAPTURE phase on #chart so the
+ * chart's own drag-to-pan never starts — the event does not reach the canvas
+ * underneath. mousemove/mouseup go on the window so a release outside the chart
+ * still ends the drag (at the clamped edge). */
+chartEl.addEventListener("mousedown", ev => {
+  if (!pickState.active || ev.button !== 0) return;
+  ev.stopPropagation();
+  ev.preventDefault();
+  const rect = chartEl.getBoundingClientRect();
+  pickState.dragging = true;
+  pickState.x0 = pickState.x1 = ev.clientX - rect.left;
+  pickRedraw();
+}, true);
+window.addEventListener("mousemove", ev => {
+  if (!pickState.active || !pickState.dragging) return;
+  const rect = chartEl.getBoundingClientRect();
+  const w = Math.max(chart.timeScale().width() - 1, 0);
+  pickState.x1 = Math.min(Math.max(ev.clientX - rect.left, 0), w);
+  pickRedraw();
+});
+window.addEventListener("mouseup", ev => {
+  if (!pickState.active || !pickState.dragging) return;
+  pickState.dragging = false;
+  const rect = chartEl.getBoundingClientRect();
+  const w = Math.max(chart.timeScale().width() - 1, 0);
+  pickState.x1 = Math.min(Math.max(ev.clientX - rect.left, 0), w);
+  const xa = Math.min(pickState.x0, pickState.x1), xb = Math.max(pickState.x0, pickState.x1);
+  if (xb - xa < 3) {          // a click, not a drag: nothing selected, stay armed
+    pickRedraw();
+    return;
+  }
+  const d0 = pickDateAt(xa), d1 = pickDateAt(xb);
+  if (d0 === d1) {            // one day cannot make a window
+    cbStatusNote("Picking the cost-basis window — that drag covers a single day. "
+      + "Drag across at least two days. Esc cancels.");
+    pickRedraw();
+    return;
+  }
+  // hand the pair to the ONE apply path: it validates, stores ISO, syncs the
+  // controls and loads the pair — a picked window and a typed one cannot end up
+  // meaning different things.
+  const f = document.getElementById("cb-from"), t = document.getElementById("cb-to");
+  if (f) f.value = fmtDay(d0);
+  if (t) t.value = fmtDay(d1);
+  setPickMode(false);
+  applyCustomCostBasis();
+});
+document.addEventListener("keydown", ev => {
+  if (ev.key === "Escape" && pickState.active) setPickMode(false);
+});
 function buildCostBasisButtons() {
   const wrap = document.getElementById("cb-window");
   if (!wrap) return;
@@ -1829,6 +2051,8 @@ function buildCostBasisButtons() {
   }
   const apply = document.getElementById("cb-apply");
   if (apply) apply.addEventListener("click", applyCustomCostBasis);
+  const pick = document.getElementById("cb-pick");
+  if (pick) pick.addEventListener("click", () => setPickMode(!pickState.active));
   for (const id of ["cb-from", "cb-to"]) {
     const el = document.getElementById(id);
     // Enter in a date field is the obvious way to commit it; without this the
@@ -1837,36 +2061,15 @@ function buildCostBasisButtons() {
       if (ev.key === "Enter") { ev.preventDefault(); applyCustomCostBasis(); }
     });
   }
-  /* Bounds on the pickers, where the stores' spans are known before any request:
-   * in static mode the manifest carries them. Live mode leaves the pickers open
-   * -- the archives are the server's, and an out-of-range date comes back naming
-   * the span rather than being silently unclickable.
-   *
-   * The span is the UNION of the two stores, because between them they answer
-   * more than either alone: the publisher's dated curves reach the newest
-   * published day and 2016-01-01, the weekly archive 2016-01-03. Bounding by the
-   * archive alone would hide the days the dated store exists to serve -- the
-   * whole point of preferring it is the fresh end. */
-  const meta = (STATIC && STATIC.cost_basis_archive || {})[S.symbol];
-  const dated = (STATIC && STATIC.cost_basis_dated || {})[S.symbol];
-  if (meta || dated) {
-    const first = dated && meta ? (dated.first < meta.first ? dated.first : meta.first)
-      : (dated || meta).first;
-    const last = dated && meta ? (dated.last > meta.last ? dated.last : meta.last)
-      : (dated || meta).last;
-    const f = document.getElementById("cb-from"), t = document.getElementById("cb-to");
-    if (f) { f.min = first; f.max = last; }
-    if (t) { t.min = first; t.max = last; }
-  }
   const pairEl = document.getElementById("cb-custom");
   if (pairEl && !cbPairTitle) cbPairTitle = pairEl.title || "";
   /* A returning reader finds their last pair in the boxes -- placed here, once,
    * so that nothing writes into them again until they are the active window
-   * (see syncCostBasisControls). */
+   * (see syncCostBasisControls). Stored ISO, shown day-first. */
   if (S.cbCustom) {
     const f = document.getElementById("cb-from"), t = document.getElementById("cb-to");
-    if (f) f.value = S.cbCustom.from;
-    if (t) t.value = S.cbCustom.to;
+    if (f) f.value = fmtDay(S.cbCustom.from);
+    if (t) t.value = fmtDay(S.cbCustom.to);
   }
   syncCostBasisControls();
 }
@@ -1948,7 +2151,7 @@ function updateEtfStatus() {
   if (el && d) {
     const ls = d.last_session;
     S.statusEtf = `<span>ETF flows <b>${etfFlowText(ls && ls[1])}</b>`
-      + `${ls ? ` · ${ls[0]} (last session)` : ""}`
+      + `${ls ? ` · ${fmtDay(ls[0])} (last session)` : ""}`
       + `${etfState.visible ? "" : " <span class=\"mkt-note\">— hidden</span>"}</span>`;
   }
   if (el) el.innerHTML = S.statusEtf;
@@ -1965,7 +2168,7 @@ function etfTooltipRow(openTime) {
   const day = new Date(openTime).toISOString().slice(0, 10);
   const v = etfState.byDay.get(day);
   const key = `<td class="k src-label">ETF net flow (USD)<br><span class="src-meta">daily · US spot BTC ETFs · this day</span></td>`;
-  if (v === undefined) return `<tr>${key}<td class="v na">n/a — series starts ${d.first}</td></tr>`;
+  if (v === undefined) return `<tr>${key}<td class="v na">n/a — series starts ${fmtDay(d.first)}</td></tr>`;
   // 0.0 is "no session", not "no flow" -- the one reading that would turn a
   // weekend into a signal.
   if (!v) return `<tr>${key}<td class="v na">no US session (weekend/holiday)</td></tr>`;
@@ -1989,14 +2192,14 @@ async function loadHolder() {
   try {
     const h = await api(`/api/onchain_snapshot?symbol=${S.symbol}`);
     const H = h.holder || {};
-    const vintage = H.data_vintage || "—";
+    const vintage = H.data_vintage ? fmtDay(H.data_vintage) : "—";
     const stamp = `<div class="vintage">checkonchain, data to ${vintage}</div>`;
     let html = `<div class="holder-grid">`;
 
     if (!H.available) {
       html += `<div class="holder-card"><h3>Long-Term / Short-Term Holder Cohorts</h3>
         <div class="holder-row"><span>Age-cohort data</span><span class="na">not available</span></div>
-        <div class="holder-note">${H.note || "not available"}</div></div>`;
+        <div class="holder-note">${H.note ? fmtDaysIn(H.note) : "not available"}</div></div>`;
     } else {
       const lp = H.lth_supply_pct, sp = H.sth_supply_pct;
       const haveSplit = lp !== null && lp !== undefined && sp !== null && sp !== undefined;
@@ -2051,12 +2254,12 @@ async function loadHolder() {
       html += `<div class="holder-card"><h3>Exchange Reserve Estimate — ${r.units}</h3>
         <svg class="sparkline" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
           <path d="${path}" fill="none" stroke="${AMBER}" stroke-width="1.5"/></svg>
-        <div class="holder-row"><span>Latest</span><span><b>${fmtNum(r.value)} ${r.units}</b> (${r.as_of})</span></div>
-        <div class="holder-note">${r.availability}</div></div>`;
+        <div class="holder-row"><span>Latest</span><span><b>${fmtNum(r.value)} ${r.units}</b> (${fmtDay(r.as_of)})</span></div>
+        <div class="holder-note">${fmtDaysIn(r.availability)}</div></div>`;
     } else {
       html += `<div class="holder-card"><h3>Exchange Reserve Estimate</h3>
         <div class="holder-row"><span>Series</span><span class="na">not yet available</span></div>
-        <div class="holder-note">${h.data_availability}</div></div>`;
+        <div class="holder-note">${fmtDaysIn(h.data_availability)}</div></div>`;
     }
     if (h.urpd && h.urpd.available) {
       const maxB = Math.max(...h.urpd.top_buckets.map(b => b.supply_btc));
@@ -2064,18 +2267,18 @@ async function loadHolder() {
         `<div class="urpd-row"><span style="width:110px">≤ $${fmtNum(b.price_bucket_usd, 0)}</span>
          <div class="bar" style="width:${Math.round(b.supply_btc / maxB * 120)}px"></div>
          <span class="amt">${fmtNum(b.supply_btc)} BTC</span></div>`).join("");
-      html += `<div class="holder-card"><h3>Heaviest Cost-Basis Levels (${h.urpd.data_vintage || "—"}, ${h.urpd.n_buckets} buckets)</h3>
+      html += `<div class="holder-card"><h3>Heaviest Cost-Basis Levels (${h.urpd.data_vintage ? fmtDay(h.urpd.data_vintage) : "—"}, ${h.urpd.n_buckets} buckets)</h3>
         <div class="urpd-bars">${rows}</div>
-        <div class="holder-note">${h.urpd.note} · total supply ${fmtNum(h.urpd.total_supply_btc)} BTC</div>
+        <div class="holder-note">${fmtDaysIn(h.urpd.note)} · total supply ${fmtNum(h.urpd.total_supply_btc)} BTC</div>
         <div class="holder-note">Where supply SITS — the ten price levels holding the most
           coins, on one date. For where supply MOVED, see the
           <b>Who Moved</b> card above, which compares two dates and names the cohorts
           being spent.</div></div>`;
     } else {
       html += `<div class="holder-card"><h3>Cost-Basis Buckets</h3>
-        <div class="holder-row"><span>Available</span><span class="na">${h.urpd ? h.urpd.note : "not available"}</span></div></div>`;
+        <div class="holder-row"><span>Available</span><span class="na">${h.urpd ? fmtDaysIn(h.urpd.note) : "not available"}</span></div></div>`;
     }
-    html += `</div><div class="holder-note">${h.data_availability}
+    html += `</div><div class="holder-note">${fmtDaysIn(h.data_availability)}
       <span class="vintage-warn">Panel data is a historical vintage, not a live reading.</span></div>`;
     box.innerHTML = html;
   } catch (e) {
@@ -2093,7 +2296,7 @@ document.getElementById("holder-panel").addEventListener("toggle", () => {
     catch (e) { STATIC = null; }        // no manifest -> local server mode
     if (STATIC && STATIC.data_version)
       document.getElementById("data-note").textContent =
-        "Data through " + STATIC.data_version + " — plus live today's candles (price only, Binance API). " +
+        "Data through " + fmtDay(STATIC.data_version) + " — plus live today's candles (price only, Binance API). " +
         "True volume for today arrives with the next Vision publish (~24 h lag, usually by ~16:30 UTC+8 the next day); " +
         "re-open this page after the daily refresh+publish for full data.";
     const sym = await api("/api/symbols");

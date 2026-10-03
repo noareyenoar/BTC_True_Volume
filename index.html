@@ -11,7 +11,7 @@
 <header>
   <div class="title-row">
     <h1>TA+VSA Visualizer</h1>
-    <span class="audit-badge">AUDITED 2026-08-21 — BTCUSDT · ETHUSDT</span>
+    <span class="audit-badge">AUDITED 21/08/2026 — BTCUSDT · ETHUSDT</span>
   </div>
   <div class="controls">
     <select id="symbol" title="Symbol"></select>
@@ -32,18 +32,29 @@
     <div class="profile-wrap">
       <span class="ctl-label">Cost-basis window</span>
       <div id="cb-window" class="btn-group" title="How far back the cost-basis change is measured — independent of the profile window above, because it answers a different question (on-chain supply that changed hands, not traded volume)"></div>
-      <!-- Any two dates, subtracted from the weekly dated-curve archive. Two
-           native date inputs rather than one calendar widget, because the
-           published page is read on a phone, where the OS picker is the one that
-           scrolls under a thumb. Apply validates locally (both dates, start
-           before end) and a pair outside the archive is answered by naming the
-           span, never by quietly showing a different window. `type="date"` needs
-           a value of exactly YYYY-MM-DD, which is also the API's own format. -->
-      <span id="cb-custom" class="datepair" title="Any window: pick two dates and subtract the archived supply curves for those dates">
-        <input id="cb-from" type="date" aria-label="Cost-basis window, start date">
+      <!-- Any two dates, subtracted from the supply curves stored for them (the
+           publisher's dated curves when they can carry the pair, the weekly
+           archive otherwise). Two typed boxes, dd/mm/yyyy, not native date
+           pickers: a native picker's displayed format follows the browser's
+           language and cannot be restyled, and this page reads day-month-year.
+           The pencil picks the pair by dragging on the chart instead of typing.
+           Apply validates locally (both dates, start before end) and a pair
+           outside the stores' span is answered by naming the span, never by
+           quietly showing a different window. The boxes hold dd/mm/yyyy;
+           everything stored and sent is ISO (YYYY-MM-DD), the API's own format. -->
+      <span id="cb-custom" class="datepair" title="Any window: pick two dates and subtract the supply curves stored for those dates">
+        <input id="cb-from" type="text" autocomplete="off" spellcheck="false"
+               placeholder="dd/mm/yyyy" aria-label="Cost-basis window, start date">
         <span class="dp-arrow">→</span>
-        <input id="cb-to" type="date" aria-label="Cost-basis window, end date">
+        <input id="cb-to" type="text" autocomplete="off" spellcheck="false"
+               placeholder="dd/mm/yyyy" aria-label="Cost-basis window, end date">
         <button id="cb-apply" type="button" title="Compute the change between these two dates">Apply</button>
+        <button id="cb-pick" class="pencil" type="button" aria-pressed="false"
+                title="Pick the window by dragging on the chart">
+          <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <path d="M11.3 2a1.9 1.9 0 1 1 2.7 2.7L5 13.7 1.3 14.7l1-3.7L11.3 2Z"/>
+          </svg>
+        </button>
       </span>
       <button id="cb-eye" class="eye" type="button" aria-pressed="true">
         <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -82,7 +93,21 @@
       </button>
     </div>
     <div class="source-wrap">
-      <select id="source" title="Volume definition driving the volume panel"></select>
+      <!-- eye = show/hide the volume histogram: the panel the source select
+           drives, not the right-edge tape profile (that eye lives beside the
+           profile-window control). Display switch only — the breakdown, the
+           hover rows and the strip keep reporting the same numbers. -->
+      <div class="source-row">
+        <select id="source" title="Volume definition driving the volume panel"></select>
+        <button id="vol-eye" class="eye" type="button" aria-pressed="true"
+                title="Hide the volume histogram">
+          <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <path d="M1 8C3.2 4.2 5.5 2.6 8 2.6S12.8 4.2 15 8c-2.2 3.8-4.5 5.4-7 5.4S3.2 11.8 1 8Z"/>
+            <circle cx="8" cy="8" r="2.3"/>
+            <line class="slash" x1="2.4" y1="13.6" x2="13.6" y2="2.4"/>
+          </svg>
+        </button>
+      </div>
       <span class="source-note">Exchange volume is prone to wash trading; on-chain settled
         value is shown by default. Switch anytime. Choice is remembered.</span>
     </div>
@@ -110,7 +135,7 @@
   Data: <code>vsa_klines</code> (gap-flagged bars) + <code>true_volume</code> (proxy stack) +
   <code>large_trades</code> (Tier-3) + <code>volume_profile</code> (tape by price) +
   <code>checkonchain_urpd</code> (on-chain supply by cost basis + holder cohorts). OHLC merge
-  rule: spot bars to 2024-12-31 (spot 1d extended via flagged cross-fills), then futures UM to
+  rule: spot bars to 31/12/2024 (spot 1d extended via flagged cross-fills), then futures UM to
   the latest refresh. Every volume number carries its source + confidence tier on hover.<br>
   Right-edge profile: <b class="legend-tape">bars</b> = traded notional per price level over
   the selected window (Binance USD-M futures tape, one venue) — a level where real volume
@@ -128,17 +153,19 @@
   bought at, tagged <b>above</b>/<b>below</b> the price at the end of the window: a cohort
   spent <i>above</i> its own cost basis is realised profit, <i>below</i> is realised loss.<br>
   The <b>date pair</b> beside the cost-basis window buttons asks for <b>any window at all</b>:
-  pick two dates and it subtracts the supply curves stored for them. Those curves come from a
-  <b>weekly archive</b> (checkonchain's own series API, one date a week since 2016), so each end
-  snaps to the nearest stored date within a few days and the status strip says which two dates
-  it actually answered with. The newest archive dates are still being restated upstream, so a
-  window ending within about a month of today is provisional; nothing before 2016-01-03 is
-  available at all. A pair is served on the archive's own $200 price grid, finer than the
-  published windows — which is why the <b>Who Moved</b> card still groups its rows into $1,000
-  zones, so one wall of owners is one row rather than ten fragments.<br>
+  type two dates (dd/mm/yyyy) — or press the pencil and drag across the chart — and it
+  subtracts the supply curves stored for them. Each end snaps to the nearest stored date within
+  a few days, and the status strip names both the resolved dates and <b>which store answered</b>:
+  the publisher's own <b>dated curves</b> when they can carry the pair (the same series the
+  preset windows come from), the <b>weekly archive</b> otherwise (checkonchain's own series
+  API, one date a week since 2016). The newest stored dates are still being restated upstream,
+  so a window ending within about a month of today is provisional; nothing before 03/01/2016 is
+  available at all. The dated store serves a $500 price grid, the archive $200 — either way the
+  <b>Who Moved</b> card groups its rows into $1,000 zones, so one wall of owners is one row
+  rather than ten fragments.<br>
   The <b>ETF flows</b> bars in the candle pane (above the volume histogram, toggle with the eye
   beside the label) are the daily <b>net flows of the US spot BTC ETFs, in USD</b> — creations
-  minus redemptions, one bar per calendar day since the first session on <b>2024-01-11</b>, green
+  minus redemptions, one bar per calendar day since the first session on <b>11/01/2024</b>, green
   for a net inflow and red for a net outflow. That series is <b>daily and session-dated</b>: a
   weekend or holiday carries an explicit <b>0</b>, which means the US market did not open —
   <i>not</i> a day with no flow — and the newest day is provisional until upstream restates it.

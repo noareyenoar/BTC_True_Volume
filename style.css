@@ -28,6 +28,10 @@ select, .btn-group button {
 .btn-group button:last-child { border-right: none; }
 .btn-group button.active { background: var(--blue); color: #fff; }
 .source-wrap { display: flex; flex-direction: column; gap: 2px; }
+.source-row { display: flex; align-items: center; gap: 6px; }
+/* the volume-source select dims with its layer, like the window buttons do:
+   the choice is kept for when the histogram comes back, not disabled */
+.source-row select.dim { opacity: 0.45; }
 .source-note { font-size: 11px; color: var(--muted); max-width: 640px; }
 .profile-wrap { display: flex; align-items: center; gap: 6px; }
 .ctl-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
@@ -42,13 +46,18 @@ select, .btn-group button {
 }
 .eye:hover { border-color: var(--border); }
 .eye svg { width: 16px; height: 16px; display: block; }
-.eye svg path, .eye svg circle, .eye svg line {
+.eye svg path, .eye svg circle, .eye svg line, .pencil svg path {
   fill: none; stroke: currentColor; stroke-width: 1.4;
   stroke-linecap: round; stroke-linejoin: round;
 }
 .eye .slash { display: none; }
 .eye.off { color: var(--muted); }
 .eye.off .slash { display: inline; }
+/* Pencil: arms the drag-pick for the cost-basis window. Same stroke treatment
+   as the eye (one icon grammar); lit while the chart is a selection surface. */
+.pencil { line-height: 0; }
+.pencil svg { width: 13px; height: 13px; display: block; }
+.pencil.on { border-color: var(--blue); background: var(--blue); color: #fff; }
 /* the window buttons keep working while the layer is hidden, so dim them rather
    than disable: the choice is kept for when the layer comes back. #cb-custom is
    the same control's other half and dims with them (see buildLayerEyes). */
@@ -66,19 +75,19 @@ select, .btn-group button {
    that reason. Distinct from .dim, which the layer eye owns -- the two compose,
    and .idle does not touch opacity so neither can cancel the other. */
 .datepair.idle { border-style: dashed; }
-.datepair.idle input[type="date"] { color: var(--muted); }
+.datepair.idle input[type="text"] { color: var(--muted); }
 .datepair .dp-arrow { color: var(--muted); font-size: 11px; }
-/* The native date input's calendar icon and field text are drawn by the OS in
-   the OS's own colours, so on this dark theme they come out near-invisible until
-   the browser is told the widget is dark. `color-scheme: dark` is the one hint
-   every current browser honours; the explicit background/colour are the fallback
-   for the text box itself. */
-.datepair input[type="date"] {
-  background: var(--bg); color: var(--text); color-scheme: dark;
+/* Typed date boxes (dd/mm/yyyy). Plain text fields on purpose: a native date
+   input's displayed format follows the browser's language and cannot be
+   restyled, and this page reads day-month-year. Explicit width because a text
+   input's default is ~20 characters wide. */
+.datepair input[type="text"] {
+  background: var(--bg); color: var(--text);
   border: 1px solid var(--border); border-radius: 3px;
-  padding: 3px 5px; font: inherit; font-size: 11px;
+  padding: 3px 5px; font: inherit; font-size: 11px; width: 76px;
 }
-.datepair input[type="date"]:focus { outline: none; border-color: var(--blue); }
+.datepair input[type="text"]:focus { outline: none; border-color: var(--blue); }
+.datepair input[type="text"]::placeholder { color: var(--muted); font-size: 10px; }
 .datepair button {
   background: var(--bg); color: var(--text); border: 1px solid var(--border);
   border-radius: 3px; padding: 3px 7px; font-size: 11px; cursor: pointer;
@@ -99,6 +108,9 @@ select, .btn-group button {
 .vintage-warn { font-size: 11px; color: var(--amber); }
 main { display: flex; flex-direction: column; }
 #chart { width: 100%; height: 62vh; }
+/* pick mode: the whole chart reads as a selection surface until the drag ends.
+   !important because the library sets its own inline cursor on the canvas. */
+#chart.picking, #chart.picking canvas { cursor: crosshair !important; }
 .statusbar {
   padding: 6px 16px; font-size: 12px; color: var(--muted);
   border-top: 1px solid var(--border); display: flex; gap: 18px; flex-wrap: wrap;
