@@ -1127,6 +1127,13 @@ const CB_ARCHIVE_CADENCE_DAYS = 7;
 // nearest anchor; further out is a different question, not a date we happen to
 // lack. Same value as app.CB_SNAP_TOLERANCE_DAYS.
 const CB_SNAP_TOLERANCE_DAYS = 4;
+// A requested END date may sit past the newest stored curve by up to this many
+// days and still be answered from that curve: the fresh end is "not published
+// yet", not a different question, and the pencil dragged to the chart's right
+// edge always lands there (the weekly archive's gap to today is at most 6
+// days). The days beyond the curve come back as the payload's `missing`. Same
+// value as app.CB_FRESH_GRACE_DAYS; the START end gets no grace.
+const CB_FRESH_GRACE_DAYS = 7;
 // What an unavailable cost-basis answer looks like, field for field the same as
 // the API's `empty` body.
 const CB_EMPTY = {
@@ -1241,10 +1248,18 @@ async function cbPairFromArchive(sym, reqFrom, reqTo) {
   const lo = cbAddDays(first, -CB_SNAP_TOLERANCE_DAYS);
   const hi = cbAddDays(last, CB_SNAP_TOLERANCE_DAYS);
   if (reqFrom < lo || reqFrom > hi) return refuse("from", reqFrom);
-  if (reqTo < lo || reqTo > hi) return refuse("to", reqTo);
+  if (reqTo < lo) return refuse("to", reqTo);
+  // The fresh end may sit past the newest Sunday: within the grace it is
+  // answered from the newest stored curve (see CB_FRESH_GRACE_DAYS) and the
+  // days that curve cannot reach are reported as missing.
+  if (reqTo > hi && reqTo > cbAddDays(last, CB_FRESH_GRACE_DAYS))
+    return refuse("to", reqTo);
   const prev = cbNearestDate(days, reqFrom), cur = cbNearestDate(days, reqTo);
   const fromSnapped = prev !== reqFrom, toSnapped = cur !== reqTo;
   const asked = cbDaysBetween(reqTo, reqFrom);
+  // Days past the newest stored curve: the nearest anchor is that curve, and
+  // the tail it cannot reach is named, not silently dropped.
+  const missing = reqTo > last ? { from: cbAddDays(last, 1), to: reqTo } : null;
   if (!prev || !cur || prev >= cur) {
     return { ...out, requested_from: reqFrom, requested_to: reqTo, archive: archive,
       note: `the archive holds one date a week and ${reqFrom} → ${reqTo} resolves `
@@ -1311,7 +1326,7 @@ async function cbPairFromArchive(sym, reqFrom, reqTo) {
     computed: true,
     note: cbArchiveNote(prev_as_of, as_of, reqFrom, reqTo, coversTo),
     requested_from: reqFrom, requested_to: reqTo, requested_span_days: asked,
-    from_snapped: fromSnapped, to_snapped: toSnapped,
+    from_snapped: fromSnapped, to_snapped: toSnapped, missing: missing,
     estimate_kind: "archive-pair", window_label: `${prev_as_of} → ${as_of}`,
     archive: archive,
   };
@@ -1436,6 +1451,8 @@ async function cbDatedAttempt(sym, reqFrom, reqTo) {
   const days = ar.dates;
   const tol = (meta.tolerance_days === undefined)
     ? CB_SNAP_TOLERANCE_DAYS : meta.tolerance_days;
+  const grace = (meta.fresh_grace_days === undefined)
+    ? CB_FRESH_GRACE_DAYS : meta.fresh_grace_days;
   const prev = cbNearestDate(days, reqFrom), cur = cbNearestDate(days, reqTo);
   if (!prev || !cur) return no("no dated curves at all for this pair");
   /* Per endpoint, never per window: these dates are irregular (monthly at the
@@ -1446,9 +1463,21 @@ async function cbDatedAttempt(sym, reqFrom, reqTo) {
     + `${Math.abs(cbDaysBetween(got, want))} days from the nearest dated curve `
     + `(${got}) — too far to stand in for it, so the weekly archive answers instead`);
   if (Math.abs(cbDaysBetween(prev, reqFrom)) > tol) return far("from", reqFrom, prev);
-  if (Math.abs(cbDaysBetween(cur, reqTo)) > tol) return far("to", reqTo, cur);
+  // The fresh end may sit past the newest dated curve: within the grace it is
+  // answered from that curve — "not published yet", not a different question —
+  // and the days it cannot reach come back as missing. cur is the newest
+  // stored date exactly when reqTo is past it; the start end gets no grace.
+  const overshoot = cbDaysBetween(reqTo, cur);
+  if (Math.abs(cbDaysBetween(cur, reqTo)) > tol
+      && !(overshoot > 0 && overshoot <= grace)) {
+    return far("to", reqTo, cur);
+  }
   if (prev >= cur) return no(`${reqFrom} → ${reqTo} resolves to a single dated `
     + `curve (${prev}) — pick a window that spans two`);
+  // Days past the newest stored curve: the nearest anchor is that curve, and
+  // the tail it cannot reach is named, not silently dropped.
+  const missing = reqTo > days[days.length - 1]
+    ? { from: cbAddDays(days[days.length - 1], 1), to: reqTo } : null;
   const pastRows = cbDatedRows(ar, prev), nowRows = cbDatedRows(ar, cur);
   const native = cbDatedNativeZone(pastRows, nowRows);
   const zone = native === null ? CB_ZONE_MIN_USD : native;
@@ -1535,7 +1564,7 @@ async function cbDatedAttempt(sym, reqFrom, reqTo) {
                       native === null, gridTop),
     requested_from: reqFrom, requested_to: reqTo,
     requested_span_days: cbDaysBetween(reqTo, reqFrom),
-    from_snapped: prev !== reqFrom, to_snapped: cur !== reqTo,
+    from_snapped: prev !== reqFrom, to_snapped: cur !== reqTo, missing: missing,
     estimate_kind: "dated-pair-custom",
     window_label: `${prev_as_of} → ${as_of}`,
     dated_store: { first: days[0], last: days[days.length - 1],
@@ -1573,6 +1602,10 @@ async function loadCostBasis() {
     costBasisState.data = null;
     const el = document.getElementById("status-cb");
     if (el) el.innerHTML = `<span class="mkt-note">Cost basis unavailable — ${e.message}</span>`;
+    // the render-driven pass early-returns on !data, so the missing flag would
+    // keep the last successful window's text: clear it with the strip
+    const flag = document.getElementById("cb-missing");
+    if (flag) { flag.hidden = true; flag.textContent = ""; flag.title = ""; }
     requestRedraw();
     // the ranked card and the price lines are DOM/series state, not canvas, so
     // requestRedraw() does not touch them — they must be cleared explicitly
@@ -1601,6 +1634,22 @@ function updateCostBasisStatus() {
   if (!el) return;
   const d = costBasisState.data;
   if (!d) return;
+  // The red "missing …" beside the Custom controls: the days the requested end
+  // ran past the answering store's newest curve (the payload's `missing` — the
+  // pair is still drawn, from that curve). Render-driven from the payload, so a
+  // preset, a refusal or another symbol clears it and it cannot go stale.
+  const flag = document.getElementById("cb-missing");
+  if (flag) {
+    const m = (d.available && d.missing) ? d.missing : null;
+    flag.hidden = !m;
+    flag.textContent = m
+      ? `missing ${fmtDay(m.from)}` + (m.from === m.to ? "" : ` – ${fmtDay(m.to)}`)
+      : "";
+    flag.title = m
+      ? `no cost-basis curve is stored for these days yet — the window shown `
+        + `ends at the newest one (${fmtDay(d.as_of)})`
+      : "";
+  }
   if (!d.available) {
     // both refusals, when there are two: the preferred store declining a pair is
     // half the answer to "why can't I see these dates" (see app.cost_basis)
@@ -1860,11 +1909,18 @@ function cbStoreSpan() {
   const meta = (STATIC && STATIC.cost_basis_archive || {})[S.symbol];
   const dated = (STATIC && STATIC.cost_basis_dated || {})[S.symbol];
   if (!meta && !dated) return null;
+  const grace = (dated && dated.fresh_grace_days !== undefined)
+    ? dated.fresh_grace_days
+    : (meta && meta.fresh_grace_days !== undefined) ? meta.fresh_grace_days
+      : CB_FRESH_GRACE_DAYS;
   return {
     first: dated && meta ? (dated.first < meta.first ? dated.first : meta.first)
       : (dated || meta).first,
     last: dated && meta ? (dated.last > meta.last ? dated.last : meta.last)
       : (dated || meta).last,
+    // the fresh end is still answered for: a `to` past `last` is drawn from the
+    // newest stored curve up to this many days out (CB_FRESH_GRACE_DAYS)
+    grace: grace,
   };
 }
 /* Apply validates locally and says what is wrong in the strip rather than
@@ -1882,7 +1938,9 @@ function applyCustomCostBasis() {
       + `earlier than the end date (${fmtDay(to)}).`);
   }
   const span = cbStoreSpan();
-  if (span && (from < span.first || to > span.last)) {
+  // a `to` within the grace of the newest stored date is answered (from that
+  // date, with the tail shown as missing): see CB_FRESH_GRACE_DAYS
+  if (span && (from < span.first || to > cbAddDays(span.last, span.grace))) {
     return cbStatusNote(`Custom window: the cost-basis stores answer `
       + `${fmtDay(span.first)} → ${fmtDay(span.last)} — ${fmtDay(from)} → ${fmtDay(to)} `
       + `is outside that span.`);

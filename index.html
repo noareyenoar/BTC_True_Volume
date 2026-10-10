@@ -40,8 +40,12 @@
            The pencil picks the pair by dragging on the chart instead of typing.
            Apply validates locally (both dates, start before end) and a pair
            outside the stores' span is answered by naming the span, never by
-           quietly showing a different window. The boxes hold dd/mm/yyyy;
-           everything stored and sent is ISO (YYYY-MM-DD), the API's own format. -->
+           quietly showing a different window. A pick whose END runs past the
+           newest stored curve is still answered — from that curve — and the red
+           "missing …" span below names the days beyond it, so the natural
+           drag-to-the-right-edge gesture explains itself instead of refusing.
+           The boxes hold dd/mm/yyyy; everything stored and sent is ISO
+           (YYYY-MM-DD), the API's own format. -->
       <span id="cb-custom" class="datepair" title="Any window: pick two dates and subtract the supply curves stored for those dates">
         <input id="cb-from" type="text" autocomplete="off" spellcheck="false"
                placeholder="dd/mm/yyyy" aria-label="Cost-basis window, start date">
@@ -55,6 +59,7 @@
             <path d="M11.3 2a1.9 1.9 0 1 1 2.7 2.7L5 13.7 1.3 14.7l1-3.7L11.3 2Z"/>
           </svg>
         </button>
+        <span id="cb-missing" class="cb-missing" hidden></span>
       </span>
       <button id="cb-eye" class="eye" type="button" aria-pressed="true">
         <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">

@@ -98,6 +98,10 @@ select, .btn-group button {
 .legend-cb { color: var(--text); }
 .cb-acc { color: var(--green); }
 .cb-dist { color: var(--red); }
+/* The days a fresh-end pick could not reach (the payload's `missing`): red text
+   beside the Custom controls, so the window drawn shorter than asked is named
+   rather than silently trimmed. Hidden for every window that reaches its end. */
+.cb-missing { color: var(--red); font-size: 11px; white-space: nowrap; }
 /* cohort split bar: LTH vs STH share of supply */
 .split { display: flex; height: 12px; border-radius: 2px; overflow: hidden; margin: 4px 0 6px; }
 .split .seg { height: 100%; }
