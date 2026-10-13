@@ -1826,6 +1826,11 @@ function renderCostBasisMovers() {
   const px = d.price_usd;
   const sellers = all.filter(z => z.d < 0).sort((a, b) => a.d - b.d).slice(0, 6);
   const buyers = all.filter(z => z.d > 0).sort((a, b) => b.d - a.d).slice(0, 6);
+  // Whole-window sums over EVERY zone, not just the 6 rows each side: these are
+  // the BOUGHT IN / SOLD OFF totals printed on the group headers below, and the
+  // same figures the footnote's "accumulated / distributed" prose uses, so the
+  // two readings cannot diverge. grossDist is negative; its header prints the
+  // magnitude because the group name already carries the direction.
   const grossAcc = all.reduce((s, z) => s + (z.d > 0 ? z.d : 0), 0);
   const grossDist = all.reduce((s, z) => s + (z.d < 0 ? z.d : 0), 0);
   // Computed, never assumed: in the 90d window the top accumulation zones all
@@ -1841,8 +1846,8 @@ function renderCostBasisMovers() {
   box.innerHTML = `<div class="holder-card"><h3>Who Moved — ${cbWindowLabel(d)} change</h3>
     <div class="mover-head">${fmtDay(d.prev_as_of)} → ${fmtDay(d.as_of)}${
       px === null || px === undefined ? "" : ` · price ${fmtPx(px)}`}</div>
-    <div class="mover-group">SOLD OFF — cohorts that shrank</div>${sellers.map(row).join("")}
-    <div class="mover-group">BOUGHT IN — cohorts that grew</div>${buyers.map(row).join("")}
+    <div class="mover-group">SOLD OFF — cohorts that shrank · ${fmtNum(-grossDist)} BTC total</div>${sellers.map(row).join("")}
+    <div class="mover-group">BOUGHT IN — cohorts that grew · ${fmtNum(grossAcc)} BTC total</div>${buyers.map(row).join("")}
     <div class="holder-note">
       Each row is a ${fmtPx(cbZoneWidth())} price zone: BTC of supply that
       changed hands, and the share of what sat there before. <b>above</b> = that
