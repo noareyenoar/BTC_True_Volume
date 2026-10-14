@@ -1,0 +1,75 @@
+2026-08-22 16:51:21,430 | INFO    | === refresh_before_visualizer ===
+2026-08-22 16:51:22,438 | INFO    | latest available on Binance Vision: 2026-08-21
+2026-08-22 16:51:22,652 | INFO    | BTCUSDT 1m: klines already to 2026-08-21
+2026-08-22 16:51:22,659 | INFO    | BTCUSDT 1h: klines already to 2026-08-21
+2026-08-22 16:51:22,660 | INFO    | BTCUSDT 1d: klines already to 2026-08-21
+2026-08-22 16:51:22,817 | INFO    | ETHUSDT 1m: klines already to 2026-08-21
+2026-08-22 16:51:22,817 | INFO    | ETHUSDT 1h: klines already to 2026-08-21
+2026-08-22 16:51:22,833 | INFO    | ETHUSDT 1d: klines already to 2026-08-21
+2026-08-22 16:51:22,952 | INFO    | BTCUSDT tape already to 2026-08-21
+2026-08-22 16:51:37,792 | INFO    | ETHUSDT tape already to 2026-08-21
+2026-08-22 16:51:37,832 | INFO    | == step0 BTCUSDT ==
+2026-08-22 16:51:37,836 | INFO    | BTCUSDT: rollup loaded from cache (2425 days)
+2026-08-22 16:51:38,104 | INFO    | BTCUSDT: 1m full rollup — 2425 days (2425 rows scanned)
+2026-08-22 16:51:38,263 | INFO    | BTCUSDT triple gate: ref_ok=2397 days, quarantined=4, volume {'days': 2397, 'days_outside_tol': 8, 'pct_ok': np.float64(99.66624947851481), 'worst_ratio': 0.9847168059810463, 'best_ratio': 1.0329126199726322}, taker-buy {'days': 2397, 'days_outside_tol': 10, 'pct_ok': np.float64(99.5828118481435), 'worst_ratio': 0.9836288776386691, 'best_ratio': 1.0340306410759306}
+2026-08-22 16:51:38,263 | WARNING | BTCUSDT quarantined days (1d/1m disagree): ['2023-08-16', '2023-11-10', '2025-01-14', '2025-01-29']
+2026-08-22 16:51:47,870 | INFO    | BTCUSDT adjudicated 2021-02-09: tape matches official Vision exactly (vol 379279.878 / tb 184543.865)
+2026-08-22 16:52:27,530 | INFO    | BTCUSDT adjudicated 2021-05-19: tape matches official Vision exactly (vol 1356733.362 / tb 659937.544)
+2026-08-22 16:52:37,094 | INFO    | BTCUSDT adjudicated 2022-09-06: tape matches official Vision exactly (vol 931039.048 / tb 443147.964)
+2026-08-22 16:52:51,160 | INFO    | BTCUSDT adjudicated 2024-10-28: tape matches official Vision exactly (vol 264558.486 / tb 140478.119)
+2026-08-22 16:52:59,356 | INFO    | BTCUSDT adjudicated 2026-05-09: tape matches official Vision exactly (vol 55871.329 / tb 28830.811)
+2026-08-22 16:53:08,986 | INFO    | BTCUSDT adjudicated 2026-05-15: tape matches official Vision exactly (vol 153598.588 / tb 76543.042)
+2026-08-22 16:53:13,673 | INFO    | BTCUSDT adjudicated 2026-05-20: tape matches official Vision exactly (vol 107438.789 / tb 54070.150)
+2026-08-22 16:53:26,790 | INFO    | BTCUSDT adjudicated 2026-06-02: tape matches official Vision exactly (vol 345606.318 / tb 165436.634)
+2026-08-22 16:53:40,309 | INFO    | BTCUSDT adjudicated 2026-06-03: tape matches official Vision exactly (vol 310114.519 / tb 148814.942)
+2026-08-22 16:54:01,521 | INFO    | BTCUSDT adjudicated 2026-06-04: tape matches official Vision exactly (vol 430108.843 / tb 212647.475)
+2026-08-22 16:54:12,231 | INFO    | BTCUSDT adjudicated 2026-06-07: tape matches official Vision exactly (vol 217042.712 / tb 112549.656)
+2026-08-22 16:54:12,742 | WARNING | BTCUSDT: tape-vs-klines gate outside tolerance ONLY on days verified against Binance Vision official aggTrades (11 days, tape matches exactly) — kline dumps are the contaminated side; tape stands, days flagged
+2026-08-22 16:54:12,742 | INFO    | BTCUSDT: num_trades taken from 1m store on 20 days where the 1d file disagrees with the tape (2020-04-01, 2020-05-01, 2020-06-01, 2020-07-01, 2020-08-01, 2020-09-01, 2020-10-01, 2020-12-01)
+2026-08-22 16:54:12,782 | INFO    | == step0 ETHUSDT ==
+2026-08-22 16:54:12,797 | INFO    | ETHUSDT: rollup loaded from cache (2425 days)
+2026-08-22 16:54:13,047 | INFO    | ETHUSDT: 1m full rollup — 2425 days (2425 rows scanned)
+2026-08-22 16:54:13,216 | INFO    | ETHUSDT triple gate: ref_ok=2397 days, quarantined=4, volume {'days': 2397, 'days_outside_tol': 10, 'pct_ok': np.float64(99.5828118481435), 'worst_ratio': 0.9548904424316628, 'best_ratio': 2.0}, taker-buy {'days': 2397, 'days_outside_tol': 8, 'pct_ok': np.float64(99.66624947851481), 'worst_ratio': 0.9591857251391752, 'best_ratio': 2.0}
+2026-08-22 16:54:13,216 | WARNING | ETHUSDT quarantined days (1d/1m disagree): ['2023-08-16', '2023-11-14', '2025-01-14', '2025-01-29']
+2026-08-22 16:54:23,135 | INFO    | ETHUSDT adjudicated 2021-02-09: tape matches official Vision exactly (vol 3375802.975 / tb 1622464.242)
+2026-08-22 16:55:18,114 | INFO    | ETHUSDT adjudicated 2021-05-19: tape matches official Vision exactly (vol 10046305.523 / tb 4841651.372)
+2026-08-22 16:55:32,259 | INFO    | ETHUSDT adjudicated 2022-09-06: tape matches official Vision exactly (vol 10576846.115 / tb 5300376.021)
+2026-08-22 16:55:40,340 | INFO    | ETHUSDT adjudicated 2022-09-11: tape matches official Vision exactly (vol 7818990.602 / tb 3847980.702)
+2026-08-22 16:56:13,261 | INFO    | ETHUSDT adjudicated 2022-09-12: tape matches official Vision exactly (vol 13025836.778 / tb 6476936.546)
+2026-08-22 16:56:30,789 | INFO    | ETHUSDT adjudicated 2022-09-13: tape matches official Vision exactly (vol 19321722.842 / tb 9517909.614)
+2026-08-22 16:56:39,876 | INFO    | ETHUSDT adjudicated 2024-10-28: tape matches official Vision exactly (vol 2973908.168 / tb 1539604.939)
+2026-08-22 16:56:47,256 | INFO    | ETHUSDT adjudicated 2026-05-19: tape matches official Vision exactly (vol 3191219.173 / tb 1576700.700)
+2026-08-22 16:56:53,641 | INFO    | ETHUSDT adjudicated 2026-05-20: tape matches official Vision exactly (vol 2816223.720 / tb 1463280.204)
+2026-08-22 16:57:09,432 | INFO    | ETHUSDT adjudicated 2026-06-04: tape matches official Vision exactly (vol 8383342.724 / tb 4136166.718)
+2026-08-22 16:57:09,961 | WARNING | ETHUSDT: tape-vs-klines gate outside tolerance ONLY on days verified against Binance Vision official aggTrades (10 days, tape matches exactly) — kline dumps are the contaminated side; tape stands, days flagged
+2026-08-22 16:57:09,967 | INFO    | ETHUSDT: num_trades taken from 1m store on 18 days where the 1d file disagrees with the tape (2020-01-01, 2020-05-01, 2020-06-01, 2020-07-01, 2020-08-01, 2020-09-01, 2020-10-01, 2020-12-01)
+2026-08-22 16:57:10,030 | INFO    | == vsa_klines ==
+2026-08-22 16:57:10,089 | INFO    | BTCUSDT spot 1d: filled 623 days from symbols store (0 month-first artifact + 623 beyond store end 2024-12-31)
+2026-08-22 16:57:10,106 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\spot\BTCUSDT\1d\merged.parquet (3228 rows, 711 gaps, 623 filled)
+2026-08-22 16:57:10,238 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\spot\BTCUSDT\1h\merged.parquet (64436 rows, 116 gaps, 0 filled)
+2026-08-22 16:57:14,358 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\spot\BTCUSDT\1m\merged.parquet (3870470 rows, 122 gaps, 0 filled)
+2026-08-22 16:57:14,454 | INFO    | ETHUSDT spot 1d: filled 623 days from symbols store (0 month-first artifact + 623 beyond store end 2024-12-31)
+2026-08-22 16:57:14,470 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\spot\ETHUSDT\1d\merged.parquet (3228 rows, 711 gaps, 623 filled)
+2026-08-22 16:57:14,615 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\spot\ETHUSDT\1h\merged.parquet (64436 rows, 116 gaps, 0 filled)
+2026-08-22 16:57:17,433 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\spot\ETHUSDT\1m\merged.parquet (3870469 rows, 122 gaps, 0 filled)
+2026-08-22 16:57:17,467 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\futures_um\BTCUSDT\1d\merged.parquet (2401 rows, 23 gaps, 0 filled)
+2026-08-22 16:57:17,548 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\futures_um\BTCUSDT\1h\merged.parquet (58176 rows, 23 gaps, 0 filled)
+2026-08-22 16:57:19,626 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\futures_um\BTCUSDT\1m\merged.parquet (3491976 rows, 23 gaps, 0 filled)
+2026-08-22 16:57:19,668 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\futures_um\ETHUSDT\1d\merged.parquet (2401 rows, 23 gaps, 0 filled)
+2026-08-22 16:57:19,742 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\futures_um\ETHUSDT\1h\merged.parquet (58176 rows, 23 gaps, 0 filled)
+2026-08-22 16:57:21,619 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\futures_um\ETHUSDT\1m\merged.parquet (3491976 rows, 23 gaps, 0 filled)
+2026-08-22 16:57:21,635 | INFO    | == large trades BTCUSDT ==
+Traceback (most recent call last):
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\refresh_before_visualizer.py", line 539, in <module>
+    main()
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\refresh_before_visualizer.py", line 529, in main
+    rebuild_chain()
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\refresh_before_visualizer.py", line 425, in rebuild_chain
+    compute_large_trades.run_symbol(sym)     # checkpointed; new days only
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\compute_large_trades.py", line 198, in run_symbol
+    df = pd.DataFrame(rows).set_index("date")
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\pandas\core\frame.py", line 6989, in set_index
+    raise KeyError(f"None of {missing} are in the columns")
+KeyError: "None of ['date'] are in the columns"

@@ -1,0 +1,21 @@
+{
+  "dataset_id": "onchain_realized_cap_eth_daily",
+  "description": "ETH realized cap derived from CoinMetrics free metrics (CapMrktCurUSD/CapMVRVCur \u2014 same derivation as onchain_dataset)",
+  "data_source": "coinmetrics_community_derived",
+  "coverage": [
+    "2015-07-30",
+    "2026-10-13"
+  ],
+  "derivation": "rc_realized_cap_usd = CapMrktCurUSD / CapMVRVCur; rc_realized_price_usd = rc_realized_cap_usd / SplyCur; rc_mvrv_ratio = CapMrktCurUSD / rc_realized_cap_usd",
+  "cross_check_vs_local_onchain": {
+    "done": false
+  },
+  "known_limitations": [
+    "aggregate cap only \u2014 no price-bucket / LTH-STH split (CapRealUSD requires paid tier)",
+    "CapMrktCurUSD is circulating-market-cap, includes staked/locked coins",
+    "FlowInExNtv/FlowOutExNtv are exchange-wallet flow estimates, not audited tapes"
+  ],
+  "confidence_tier": "Medium",
+  "generated_utc": "2026-10-14T04:37:41.882770+00:00",
+  "row_count": 4094
+}

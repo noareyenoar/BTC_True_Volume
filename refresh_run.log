@@ -1,0 +1,482 @@
+2026-08-21 20:36:18,449 | INFO    | === refresh_before_visualizer ===
+2026-08-21 20:36:19,454 | INFO    | latest available on Binance Vision: 2026-08-20
+2026-08-21 20:36:19,670 | INFO    | BTCUSDT 1m: klines already to 2026-08-20
+2026-08-21 20:36:19,685 | INFO    | BTCUSDT 1h: klines already to 2026-08-20
+2026-08-21 20:36:19,694 | INFO    | BTCUSDT 1d: klines already to 2026-08-20
+2026-08-21 20:36:19,873 | INFO    | ETHUSDT 1m: klines already to 2026-08-20
+2026-08-21 20:36:19,887 | INFO    | ETHUSDT 1h: klines already to 2026-08-20
+2026-08-21 20:36:19,897 | INFO    | ETHUSDT 1d: klines already to 2026-08-20
+2026-08-21 20:36:20,001 | INFO    | BTCUSDT tape already to 2026-08-20
+2026-08-21 20:36:34,644 | INFO    | ETHUSDT tape already to 2026-08-20
+2026-08-21 20:36:34,674 | INFO    | == step0 BTCUSDT ==
+2026-08-21 20:36:34,679 | INFO    | BTCUSDT: rollup loaded from cache (2424 days)
+2026-08-21 20:36:34,912 | INFO    | BTCUSDT: 1m full rollup — 2424 days (2424 rows scanned)
+2026-08-21 20:36:35,064 | INFO    | BTCUSDT triple gate: ref_ok=2396 days, quarantined=4, volume {'days': 2396, 'days_outside_tol': 8, 'pct_ok': np.float64(99.6661101836394), 'worst_ratio': 0.9847168059810463, 'best_ratio': 1.0329126199726322}, taker-buy {'days': 2396, 'days_outside_tol': 10, 'pct_ok': np.float64(99.58263772954925), 'worst_ratio': 0.9836288776386691, 'best_ratio': 1.0340306410759306}
+2026-08-21 20:36:35,064 | WARNING | BTCUSDT quarantined days (1d/1m disagree): ['2023-08-16', '2023-11-10', '2025-01-14', '2025-01-29']
+2026-08-21 20:36:45,267 | INFO    | BTCUSDT adjudicated 2021-02-09: tape matches official Vision exactly (vol 379279.878 / tb 184543.865)
+2026-08-21 20:37:24,592 | INFO    | BTCUSDT adjudicated 2021-05-19: tape matches official Vision exactly (vol 1356733.362 / tb 659937.544)
+2026-08-21 20:37:32,709 | INFO    | BTCUSDT adjudicated 2022-09-06: tape matches official Vision exactly (vol 931039.048 / tb 443147.964)
+2026-08-21 20:37:39,955 | INFO    | BTCUSDT adjudicated 2024-10-28: tape matches official Vision exactly (vol 264558.486 / tb 140478.119)
+2026-08-21 20:37:43,364 | INFO    | BTCUSDT adjudicated 2026-05-09: tape matches official Vision exactly (vol 55871.329 / tb 28830.811)
+2026-08-21 20:37:50,631 | INFO    | BTCUSDT adjudicated 2026-05-15: tape matches official Vision exactly (vol 153598.588 / tb 76543.042)
+2026-08-21 20:37:56,233 | INFO    | BTCUSDT adjudicated 2026-05-20: tape matches official Vision exactly (vol 107438.789 / tb 54070.150)
+2026-08-21 20:38:10,326 | INFO    | BTCUSDT adjudicated 2026-06-02: tape matches official Vision exactly (vol 345606.318 / tb 165436.634)
+2026-08-21 20:38:24,090 | INFO    | BTCUSDT adjudicated 2026-06-03: tape matches official Vision exactly (vol 310114.519 / tb 148814.942)
+2026-08-21 20:38:43,936 | INFO    | BTCUSDT adjudicated 2026-06-04: tape matches official Vision exactly (vol 430108.843 / tb 212647.475)
+2026-08-21 20:38:54,407 | INFO    | BTCUSDT adjudicated 2026-06-07: tape matches official Vision exactly (vol 217042.712 / tb 112549.656)
+2026-08-21 20:38:54,926 | WARNING | BTCUSDT: tape-vs-klines gate outside tolerance ONLY on days verified against Binance Vision official aggTrades (11 days, tape matches exactly) — kline dumps are the contaminated side; tape stands, days flagged
+2026-08-21 20:38:54,930 | INFO    | BTCUSDT: num_trades taken from 1m store on 20 days where the 1d file disagrees with the tape (2020-04-01, 2020-05-01, 2020-06-01, 2020-07-01, 2020-08-01, 2020-09-01, 2020-10-01, 2020-12-01)
+2026-08-21 20:38:54,977 | INFO    | == step0 ETHUSDT ==
+2026-08-21 20:38:54,982 | INFO    | ETHUSDT: rollup loaded from cache (2424 days)
+2026-08-21 20:38:55,220 | INFO    | ETHUSDT: 1m full rollup — 2424 days (2424 rows scanned)
+2026-08-21 20:38:55,379 | INFO    | ETHUSDT triple gate: ref_ok=2396 days, quarantined=4, volume {'days': 2396, 'days_outside_tol': 10, 'pct_ok': np.float64(99.58263772954925), 'worst_ratio': 0.9548904424316628, 'best_ratio': 2.0}, taker-buy {'days': 2396, 'days_outside_tol': 8, 'pct_ok': np.float64(99.6661101836394), 'worst_ratio': 0.9591857251391752, 'best_ratio': 2.0}
+2026-08-21 20:38:55,379 | WARNING | ETHUSDT quarantined days (1d/1m disagree): ['2023-08-16', '2023-11-14', '2025-01-14', '2025-01-29']
+2026-08-21 20:39:01,730 | INFO    | ETHUSDT adjudicated 2021-02-09: tape matches official Vision exactly (vol 3375802.975 / tb 1622464.242)
+2026-08-21 20:39:36,982 | INFO    | ETHUSDT adjudicated 2021-05-19: tape matches official Vision exactly (vol 10046305.523 / tb 4841651.372)
+2026-08-21 20:39:48,864 | INFO    | ETHUSDT adjudicated 2022-09-06: tape matches official Vision exactly (vol 10576846.115 / tb 5300376.021)
+2026-08-21 20:39:56,109 | INFO    | ETHUSDT adjudicated 2022-09-11: tape matches official Vision exactly (vol 7818990.602 / tb 3847980.702)
+2026-08-21 20:40:07,033 | INFO    | ETHUSDT adjudicated 2022-09-12: tape matches official Vision exactly (vol 13025836.778 / tb 6476936.546)
+2026-08-21 20:40:20,455 | INFO    | ETHUSDT adjudicated 2022-09-13: tape matches official Vision exactly (vol 19321722.842 / tb 9517909.614)
+2026-08-21 20:40:26,879 | INFO    | ETHUSDT adjudicated 2024-10-28: tape matches official Vision exactly (vol 2973908.168 / tb 1539604.939)
+2026-08-21 20:40:32,064 | INFO    | ETHUSDT adjudicated 2026-05-19: tape matches official Vision exactly (vol 3191219.173 / tb 1576700.700)
+2026-08-21 20:40:37,045 | INFO    | ETHUSDT adjudicated 2026-05-20: tape matches official Vision exactly (vol 2816223.720 / tb 1463280.204)
+2026-08-21 20:40:52,000 | INFO    | ETHUSDT adjudicated 2026-06-04: tape matches official Vision exactly (vol 8383342.724 / tb 4136166.718)
+2026-08-21 20:40:52,528 | WARNING | ETHUSDT: tape-vs-klines gate outside tolerance ONLY on days verified against Binance Vision official aggTrades (10 days, tape matches exactly) — kline dumps are the contaminated side; tape stands, days flagged
+2026-08-21 20:40:52,531 | INFO    | ETHUSDT: num_trades taken from 1m store on 18 days where the 1d file disagrees with the tape (2020-01-01, 2020-05-01, 2020-06-01, 2020-07-01, 2020-08-01, 2020-09-01, 2020-10-01, 2020-12-01)
+2026-08-21 20:40:52,574 | INFO    | == vsa_klines ==
+2026-08-21 20:40:52,602 | INFO    | BTCUSDT spot 1d: filled 623 days from symbols store (0 month-first artifact + 623 beyond store end 2024-12-31)
+2026-08-21 20:40:52,610 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\spot\BTCUSDT\1d\merged.parquet (3228 rows, 711 gaps, 623 filled)
+2026-08-21 20:40:52,698 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\spot\BTCUSDT\1h\merged.parquet (64436 rows, 116 gaps, 0 filled)
+2026-08-21 20:40:54,996 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\spot\BTCUSDT\1m\merged.parquet (3870470 rows, 122 gaps, 0 filled)
+2026-08-21 20:40:55,037 | INFO    | ETHUSDT spot 1d: filled 623 days from symbols store (0 month-first artifact + 623 beyond store end 2024-12-31)
+2026-08-21 20:40:55,064 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\spot\ETHUSDT\1d\merged.parquet (3228 rows, 711 gaps, 623 filled)
+2026-08-21 20:40:55,155 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\spot\ETHUSDT\1h\merged.parquet (64436 rows, 116 gaps, 0 filled)
+2026-08-21 20:40:57,394 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\spot\ETHUSDT\1m\merged.parquet (3870469 rows, 122 gaps, 0 filled)
+2026-08-21 20:40:57,430 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\futures_um\BTCUSDT\1d\merged.parquet (2400 rows, 23 gaps, 0 filled)
+2026-08-21 20:40:57,512 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\futures_um\BTCUSDT\1h\merged.parquet (58152 rows, 23 gaps, 0 filled)
+2026-08-21 20:40:59,654 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\futures_um\BTCUSDT\1m\merged.parquet (3490536 rows, 23 gaps, 0 filled)
+2026-08-21 20:40:59,699 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\futures_um\ETHUSDT\1d\merged.parquet (2400 rows, 23 gaps, 0 filled)
+2026-08-21 20:40:59,850 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\futures_um\ETHUSDT\1h\merged.parquet (58152 rows, 23 gaps, 0 filled)
+2026-08-21 20:41:03,522 | INFO    | wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\vsa_klines\futures_um\ETHUSDT\1m\merged.parquet (3490536 rows, 23 gaps, 0 filled)
+2026-08-21 20:41:03,550 | INFO    | == large trades BTCUSDT ==
+2026-08-21 20:41:03,572 | INFO    | BTCUSDT pass1 20260814.parquet done (1 days so far)
+2026-08-21 20:41:03,580 | INFO    | BTCUSDT pass1 20260815.parquet done (2 days so far)
+2026-08-21 20:41:03,589 | INFO    | BTCUSDT pass1 20260816.parquet done (3 days so far)
+2026-08-21 20:41:03,608 | INFO    | BTCUSDT pass1 20260817.parquet done (4 days so far)
+2026-08-21 20:41:03,624 | INFO    | BTCUSDT pass1 20260818.parquet done (5 days so far)
+2026-08-21 20:41:03,668 | INFO    | BTCUSDT pass1 20260819.parquet done (6 days so far)
+2026-08-21 20:41:03,726 | INFO    | BTCUSDT pass1 20260820.parquet done (7 days so far)
+2026-08-21 20:41:03,743 | INFO    | BTCUSDT pass2 20260814.parquet done
+2026-08-21 20:41:03,750 | INFO    | BTCUSDT pass2 20260815.parquet done
+2026-08-21 20:41:03,757 | INFO    | BTCUSDT pass2 20260816.parquet done
+2026-08-21 20:41:03,775 | INFO    | BTCUSDT pass2 20260817.parquet done
+2026-08-21 20:41:03,791 | INFO    | BTCUSDT pass2 20260818.parquet done
+2026-08-21 20:41:03,838 | INFO    | BTCUSDT pass2 20260819.parquet done
+2026-08-21 20:41:03,898 | INFO    | BTCUSDT pass2 20260820.parquet done
+2026-08-21 20:41:03,905 | INFO    | BTCUSDT: upserted 7 new days into existing 2424-day series
+2026-08-21 20:41:03,912 | INFO    | BTCUSDT: wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\large_trades\BTCUSDT.parquet (2424 days, 2020-01-01 -> 2026-08-20)
+2026-08-21 20:41:03,914 | INFO    | == large trades ETHUSDT ==
+2026-08-21 20:41:04,080 | INFO    | ETHUSDT pass1 20260820.parquet done (1 days so far)
+2026-08-21 20:41:04,171 | INFO    | ETHUSDT pass2 20260820.parquet done
+2026-08-21 20:41:04,173 | INFO    | ETHUSDT: upserted 1 new days into existing 2424-day series
+2026-08-21 20:41:04,181 | INFO    | ETHUSDT: wrote D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\processed\large_trades\ETHUSDT.parquet (2424 days, 2020-01-01 -> 2026-08-20)
+2026-08-21 20:41:04,187 | INFO    | == phase1 BTC (Blockchain.com) ==
+2026-08-21 20:41:05,439 | INFO    | chart estimated-transaction-volume-usd: 5815 days, period=day, 2010-08-28 -> 2026-08-20 (469.5 .. 5.839e+10)
+2026-08-21 20:41:06,596 | INFO    | chart n-transactions: 6418 days, period=day, 2009-01-17 -> 2026-08-16 (4 .. 9.27e+05)
+2026-08-21 20:41:07,726 | INFO    | chart n-unique-addresses: 6406 days, period=day, 2009-01-03 -> 2026-08-16 (2 .. 1.073e+06)
+2026-08-21 20:41:09,207 | INFO    | chart hash-rate: 6432 days, period=day, 2009-01-03 -> 2026-08-16 (0 .. 1.305e+09)
+2026-08-21 20:41:10,485 | INFO    | chart miners-revenue: 6421 days, period=day, 2009-01-17 -> 2026-08-16 (0 .. 1.078e+08)
+2026-08-21 20:41:23,937 | INFO    | == phase1 ETH ==
+2026-08-21 20:41:23,940 | WARNING | no ETHERSCAN_API_KEY in .env — will fall back to CoinMetrics TxCnt
+2026-08-21 20:41:23,940 | INFO    | Etherscan unavailable (no key) — falling back to CoinMetrics TxCnt
+2026-08-21 20:41:26,763 | INFO    | == phase5 realized cap (CoinMetrics) ==
+2026-08-21 20:41:29,788 | INFO    | phase5 cross-check: {'done': True, 'days': 2387, 'max_rel_diff': 0.0020290772036868385, 'mean_rel_diff': 1.6444634470070958e-06, 'pass_2pct': True, 'overlap': ['2020-01-01', '2026-07-14']}
+2026-08-21 20:41:31,271 | INFO    | == phase2 positioning (resume-safe) ==
+2026-08-21 20:41:37,914 | INFO    | earliest published metrics day: 2020-11-23
+2026-08-21 20:41:38,958 | INFO    | BTCUSDT: 2097/2097 days (120524.5 days/min, ETA 0.00h, 0 holes)
+2026-08-21 20:42:00,764 | INFO    | BTCUSDT: merged 654716 rows -> D:\kp_ai_agent\Dataset_Fetcher\binance_full_dataset\processed\futures_um\metrics\BTCUSDT\merged.parquet (34.9 MB)
+2026-08-21 20:42:01,606 | WARNING | ETHUSDT 2020-11-23: no published file — hole
+2026-08-21 20:42:02,078 | WARNING | ETHUSDT 2020-11-24: no published file — hole
+2026-08-21 20:42:02,569 | WARNING | ETHUSDT 2020-11-25: no published file — hole
+2026-08-21 20:42:03,066 | WARNING | ETHUSDT 2020-11-26: no published file — hole
+2026-08-21 20:42:03,571 | WARNING | ETHUSDT 2020-11-27: no published file — hole
+2026-08-21 20:42:04,190 | WARNING | ETHUSDT 2020-11-28: no published file — hole
+2026-08-21 20:42:04,685 | WARNING | ETHUSDT 2020-11-29: no published file — hole
+2026-08-21 20:42:04,984 | WARNING | ETHUSDT 2020-11-30: no published file — hole
+2026-08-21 20:42:05,483 | WARNING | ETHUSDT 2020-12-01: no published file — hole
+2026-08-21 20:42:05,767 | WARNING | ETHUSDT 2020-12-02: no published file — hole
+2026-08-21 20:42:06,061 | WARNING | ETHUSDT 2020-12-03: no published file — hole
+2026-08-21 20:42:06,365 | WARNING | ETHUSDT 2020-12-04: no published file — hole
+2026-08-21 20:42:06,843 | WARNING | ETHUSDT 2020-12-05: no published file — hole
+2026-08-21 20:42:07,143 | WARNING | ETHUSDT 2020-12-06: no published file — hole
+2026-08-21 20:42:07,675 | WARNING | ETHUSDT 2020-12-07: no published file — hole
+2026-08-21 20:42:08,160 | WARNING | ETHUSDT 2020-12-08: no published file — hole
+2026-08-21 20:42:08,652 | WARNING | ETHUSDT 2020-12-09: no published file — hole
+2026-08-21 20:42:09,141 | WARNING | ETHUSDT 2020-12-10: no published file — hole
+2026-08-21 20:42:09,629 | WARNING | ETHUSDT 2020-12-11: no published file — hole
+2026-08-21 20:42:10,125 | WARNING | ETHUSDT 2020-12-12: no published file — hole
+2026-08-21 20:42:10,604 | WARNING | ETHUSDT 2020-12-13: no published file — hole
+2026-08-21 20:42:11,103 | WARNING | ETHUSDT 2020-12-14: no published file — hole
+2026-08-21 20:42:11,592 | WARNING | ETHUSDT 2020-12-15: no published file — hole
+2026-08-21 20:42:12,085 | WARNING | ETHUSDT 2020-12-16: no published file — hole
+2026-08-21 20:42:12,568 | WARNING | ETHUSDT 2020-12-17: no published file — hole
+2026-08-21 20:42:13,076 | WARNING | ETHUSDT 2020-12-18: no published file — hole
+2026-08-21 20:42:13,568 | WARNING | ETHUSDT 2020-12-19: no published file — hole
+2026-08-21 20:42:14,050 | WARNING | ETHUSDT 2020-12-20: no published file — hole
+2026-08-21 20:42:14,540 | WARNING | ETHUSDT 2020-12-21: no published file — hole
+2026-08-21 20:42:15,047 | WARNING | ETHUSDT 2020-12-22: no published file — hole
+2026-08-21 20:42:15,576 | WARNING | ETHUSDT 2020-12-23: no published file — hole
+2026-08-21 20:42:16,101 | WARNING | ETHUSDT 2020-12-24: no published file — hole
+2026-08-21 20:42:16,587 | WARNING | ETHUSDT 2020-12-25: no published file — hole
+2026-08-21 20:42:17,087 | WARNING | ETHUSDT 2020-12-26: no published file — hole
+2026-08-21 20:42:17,592 | WARNING | ETHUSDT 2020-12-27: no published file — hole
+2026-08-21 20:42:18,076 | WARNING | ETHUSDT 2020-12-28: no published file — hole
+2026-08-21 20:42:18,383 | WARNING | ETHUSDT 2020-12-29: no published file — hole
+2026-08-21 20:42:18,858 | WARNING | ETHUSDT 2020-12-30: no published file — hole
+2026-08-21 20:42:19,357 | WARNING | ETHUSDT 2020-12-31: no published file — hole
+2026-08-21 20:42:19,862 | WARNING | ETHUSDT 2021-01-01: no published file — hole
+2026-08-21 20:42:20,375 | WARNING | ETHUSDT 2021-01-02: no published file — hole
+2026-08-21 20:42:20,859 | WARNING | ETHUSDT 2021-01-03: no published file — hole
+2026-08-21 20:42:21,363 | WARNING | ETHUSDT 2021-01-04: no published file — hole
+2026-08-21 20:42:21,660 | WARNING | ETHUSDT 2021-01-05: no published file — hole
+2026-08-21 20:42:22,163 | WARNING | ETHUSDT 2021-01-06: no published file — hole
+2026-08-21 20:42:22,463 | WARNING | ETHUSDT 2021-01-07: no published file — hole
+2026-08-21 20:42:22,965 | WARNING | ETHUSDT 2021-01-08: no published file — hole
+2026-08-21 20:42:23,471 | WARNING | ETHUSDT 2021-01-09: no published file — hole
+2026-08-21 20:42:23,955 | WARNING | ETHUSDT 2021-01-10: no published file — hole
+2026-08-21 20:42:24,435 | WARNING | ETHUSDT 2021-01-11: no published file — hole
+2026-08-21 20:42:24,926 | WARNING | ETHUSDT 2021-01-12: no published file — hole
+2026-08-21 20:42:25,408 | WARNING | ETHUSDT 2021-01-13: no published file — hole
+2026-08-21 20:42:25,982 | WARNING | ETHUSDT 2021-01-14: no published file — hole
+2026-08-21 20:42:26,467 | WARNING | ETHUSDT 2021-01-15: no published file — hole
+2026-08-21 20:42:26,963 | WARNING | ETHUSDT 2021-01-16: no published file — hole
+2026-08-21 20:42:27,446 | WARNING | ETHUSDT 2021-01-17: no published file — hole
+2026-08-21 20:42:27,924 | WARNING | ETHUSDT 2021-01-18: no published file — hole
+2026-08-21 20:42:28,218 | WARNING | ETHUSDT 2021-01-19: no published file — hole
+2026-08-21 20:42:28,706 | WARNING | ETHUSDT 2021-01-20: no published file — hole
+2026-08-21 20:42:29,003 | WARNING | ETHUSDT 2021-01-21: no published file — hole
+2026-08-21 20:42:29,306 | WARNING | ETHUSDT 2021-01-22: no published file — hole
+2026-08-21 20:42:29,787 | WARNING | ETHUSDT 2021-01-23: no published file — hole
+2026-08-21 20:42:30,279 | WARNING | ETHUSDT 2021-01-24: no published file — hole
+2026-08-21 20:42:30,824 | WARNING | ETHUSDT 2021-01-25: no published file — hole
+2026-08-21 20:42:31,324 | WARNING | ETHUSDT 2021-01-26: no published file — hole
+2026-08-21 20:42:31,818 | WARNING | ETHUSDT 2021-01-27: no published file — hole
+2026-08-21 20:42:32,292 | WARNING | ETHUSDT 2021-01-28: no published file — hole
+2026-08-21 20:42:32,778 | WARNING | ETHUSDT 2021-01-29: no published file — hole
+2026-08-21 20:42:33,264 | WARNING | ETHUSDT 2021-01-30: no published file — hole
+2026-08-21 20:42:33,565 | WARNING | ETHUSDT 2021-01-31: no published file — hole
+2026-08-21 20:42:34,049 | WARNING | ETHUSDT 2021-02-01: no published file — hole
+2026-08-21 20:42:34,345 | WARNING | ETHUSDT 2021-02-02: no published file — hole
+2026-08-21 20:42:34,812 | WARNING | ETHUSDT 2021-02-03: no published file — hole
+2026-08-21 20:42:35,300 | WARNING | ETHUSDT 2021-02-04: no published file — hole
+2026-08-21 20:42:35,813 | WARNING | ETHUSDT 2021-02-05: no published file — hole
+2026-08-21 20:42:36,324 | WARNING | ETHUSDT 2021-02-06: no published file — hole
+2026-08-21 20:42:36,813 | WARNING | ETHUSDT 2021-02-07: no published file — hole
+2026-08-21 20:42:37,308 | WARNING | ETHUSDT 2021-02-08: no published file — hole
+2026-08-21 20:42:37,798 | WARNING | ETHUSDT 2021-02-09: no published file — hole
+2026-08-21 20:42:38,281 | WARNING | ETHUSDT 2021-02-10: no published file — hole
+2026-08-21 20:42:38,584 | WARNING | ETHUSDT 2021-02-11: no published file — hole
+2026-08-21 20:42:38,884 | WARNING | ETHUSDT 2021-02-12: no published file — hole
+2026-08-21 20:42:39,375 | WARNING | ETHUSDT 2021-02-13: no published file — hole
+2026-08-21 20:42:39,868 | WARNING | ETHUSDT 2021-02-14: no published file — hole
+2026-08-21 20:42:40,157 | WARNING | ETHUSDT 2021-02-15: no published file — hole
+2026-08-21 20:42:40,655 | WARNING | ETHUSDT 2021-02-16: no published file — hole
+2026-08-21 20:42:40,950 | WARNING | ETHUSDT 2021-02-17: no published file — hole
+2026-08-21 20:42:41,439 | WARNING | ETHUSDT 2021-02-18: no published file — hole
+2026-08-21 20:42:41,929 | WARNING | ETHUSDT 2021-02-19: no published file — hole
+2026-08-21 20:42:42,258 | WARNING | ETHUSDT 2021-02-20: no published file — hole
+2026-08-21 20:42:42,761 | WARNING | ETHUSDT 2021-02-21: no published file — hole
+2026-08-21 20:42:43,252 | WARNING | ETHUSDT 2021-02-22: no published file — hole
+2026-08-21 20:42:43,734 | WARNING | ETHUSDT 2021-02-23: no published file — hole
+2026-08-21 20:42:44,248 | WARNING | ETHUSDT 2021-02-24: no published file — hole
+2026-08-21 20:42:44,740 | WARNING | ETHUSDT 2021-02-25: no published file — hole
+2026-08-21 20:42:45,228 | WARNING | ETHUSDT 2021-02-26: no published file — hole
+2026-08-21 20:42:45,739 | WARNING | ETHUSDT 2021-02-27: no published file — hole
+2026-08-21 20:42:46,224 | WARNING | ETHUSDT 2021-02-28: no published file — hole
+2026-08-21 20:42:46,745 | WARNING | ETHUSDT 2021-03-01: no published file — hole
+2026-08-21 20:42:47,154 | WARNING | ETHUSDT 2021-03-02: no published file — hole
+2026-08-21 20:42:47,814 | WARNING | ETHUSDT 2021-03-03: no published file — hole
+2026-08-21 20:42:48,323 | WARNING | ETHUSDT 2021-03-04: no published file — hole
+2026-08-21 20:42:48,840 | WARNING | ETHUSDT 2021-03-05: no published file — hole
+2026-08-21 20:42:49,150 | WARNING | ETHUSDT 2021-03-06: no published file — hole
+2026-08-21 20:42:49,442 | WARNING | ETHUSDT 2021-03-07: no published file — hole
+2026-08-21 20:42:49,945 | WARNING | ETHUSDT 2021-03-08: no published file — hole
+2026-08-21 20:42:50,420 | WARNING | ETHUSDT 2021-03-09: no published file — hole
+2026-08-21 20:42:50,906 | WARNING | ETHUSDT 2021-03-10: no published file — hole
+2026-08-21 20:42:51,203 | WARNING | ETHUSDT 2021-03-11: no published file — hole
+2026-08-21 20:42:51,720 | WARNING | ETHUSDT 2021-03-12: no published file — hole
+2026-08-21 20:42:52,253 | WARNING | ETHUSDT 2021-03-13: no published file — hole
+2026-08-21 20:42:52,770 | WARNING | ETHUSDT 2021-03-14: no published file — hole
+2026-08-21 20:42:53,272 | WARNING | ETHUSDT 2021-03-15: no published file — hole
+2026-08-21 20:42:53,809 | WARNING | ETHUSDT 2021-03-16: no published file — hole
+2026-08-21 20:42:54,135 | WARNING | ETHUSDT 2021-03-17: no published file — hole
+2026-08-21 20:42:54,612 | WARNING | ETHUSDT 2021-03-18: no published file — hole
+2026-08-21 20:42:55,096 | WARNING | ETHUSDT 2021-03-19: no published file — hole
+2026-08-21 20:42:55,615 | WARNING | ETHUSDT 2021-03-20: no published file — hole
+2026-08-21 20:42:56,099 | WARNING | ETHUSDT 2021-03-21: no published file — hole
+2026-08-21 20:42:56,601 | WARNING | ETHUSDT 2021-03-22: no published file — hole
+2026-08-21 20:42:57,082 | WARNING | ETHUSDT 2021-03-23: no published file — hole
+2026-08-21 20:42:57,565 | WARNING | ETHUSDT 2021-03-24: no published file — hole
+2026-08-21 20:42:58,065 | WARNING | ETHUSDT 2021-03-25: no published file — hole
+2026-08-21 20:42:58,547 | WARNING | ETHUSDT 2021-03-26: no published file — hole
+2026-08-21 20:42:59,038 | WARNING | ETHUSDT 2021-03-27: no published file — hole
+2026-08-21 20:42:59,536 | WARNING | ETHUSDT 2021-03-28: no published file — hole
+2026-08-21 20:43:00,012 | WARNING | ETHUSDT 2021-03-29: no published file — hole
+2026-08-21 20:43:00,487 | WARNING | ETHUSDT 2021-03-30: no published file — hole
+2026-08-21 20:43:00,977 | WARNING | ETHUSDT 2021-03-31: no published file — hole
+2026-08-21 20:43:01,462 | WARNING | ETHUSDT 2021-04-01: no published file — hole
+2026-08-21 20:43:01,957 | WARNING | ETHUSDT 2021-04-02: no published file — hole
+2026-08-21 20:43:02,435 | WARNING | ETHUSDT 2021-04-03: no published file — hole
+2026-08-21 20:43:02,733 | WARNING | ETHUSDT 2021-04-04: no published file — hole
+2026-08-21 20:43:03,223 | WARNING | ETHUSDT 2021-04-05: no published file — hole
+2026-08-21 20:43:03,726 | WARNING | ETHUSDT 2021-04-06: no published file — hole
+2026-08-21 20:43:04,220 | WARNING | ETHUSDT 2021-04-07: no published file — hole
+2026-08-21 20:43:04,709 | WARNING | ETHUSDT 2021-04-08: no published file — hole
+2026-08-21 20:43:05,192 | WARNING | ETHUSDT 2021-04-09: no published file — hole
+2026-08-21 20:43:05,692 | WARNING | ETHUSDT 2021-04-10: no published file — hole
+2026-08-21 20:43:06,180 | WARNING | ETHUSDT 2021-04-11: no published file — hole
+2026-08-21 20:43:06,668 | WARNING | ETHUSDT 2021-04-12: no published file — hole
+2026-08-21 20:43:07,179 | WARNING | ETHUSDT 2021-04-13: no published file — hole
+2026-08-21 20:43:07,663 | WARNING | ETHUSDT 2021-04-14: no published file — hole
+2026-08-21 20:43:08,142 | WARNING | ETHUSDT 2021-04-15: no published file — hole
+2026-08-21 20:43:08,623 | WARNING | ETHUSDT 2021-04-16: no published file — hole
+2026-08-21 20:43:09,143 | WARNING | ETHUSDT 2021-04-17: no published file — hole
+2026-08-21 20:43:09,786 | WARNING | ETHUSDT 2021-04-18: no published file — hole
+2026-08-21 20:43:10,303 | WARNING | ETHUSDT 2021-04-19: no published file — hole
+2026-08-21 20:43:10,780 | WARNING | ETHUSDT 2021-04-20: no published file — hole
+2026-08-21 20:43:11,270 | WARNING | ETHUSDT 2021-04-21: no published file — hole
+2026-08-21 20:43:11,745 | WARNING | ETHUSDT 2021-04-22: no published file — hole
+2026-08-21 20:43:12,230 | WARNING | ETHUSDT 2021-04-23: no published file — hole
+2026-08-21 20:43:12,522 | WARNING | ETHUSDT 2021-04-24: no published file — hole
+2026-08-21 20:43:13,017 | WARNING | ETHUSDT 2021-04-25: no published file — hole
+2026-08-21 20:43:13,322 | WARNING | ETHUSDT 2021-04-26: no published file — hole
+2026-08-21 20:43:13,817 | WARNING | ETHUSDT 2021-04-27: no published file — hole
+2026-08-21 20:43:14,296 | WARNING | ETHUSDT 2021-04-28: no published file — hole
+2026-08-21 20:43:14,601 | WARNING | ETHUSDT 2021-04-29: no published file — hole
+2026-08-21 20:43:14,898 | WARNING | ETHUSDT 2021-04-30: no published file — hole
+2026-08-21 20:43:15,382 | WARNING | ETHUSDT 2021-05-01: no published file — hole
+2026-08-21 20:43:15,867 | WARNING | ETHUSDT 2021-05-02: no published file — hole
+2026-08-21 20:43:16,169 | WARNING | ETHUSDT 2021-05-03: no published file — hole
+2026-08-21 20:43:16,654 | WARNING | ETHUSDT 2021-05-04: no published file — hole
+2026-08-21 20:43:16,950 | WARNING | ETHUSDT 2021-05-05: no published file — hole
+2026-08-21 20:43:17,442 | WARNING | ETHUSDT 2021-05-06: no published file — hole
+2026-08-21 20:43:17,945 | WARNING | ETHUSDT 2021-05-07: no published file — hole
+2026-08-21 20:43:18,426 | WARNING | ETHUSDT 2021-05-08: no published file — hole
+2026-08-21 20:43:18,716 | WARNING | ETHUSDT 2021-05-09: no published file — hole
+2026-08-21 20:43:19,205 | WARNING | ETHUSDT 2021-05-10: no published file — hole
+2026-08-21 20:43:19,725 | WARNING | ETHUSDT 2021-05-11: no published file — hole
+2026-08-21 20:43:20,192 | WARNING | ETHUSDT 2021-05-12: no published file — hole
+2026-08-21 20:43:20,691 | WARNING | ETHUSDT 2021-05-13: no published file — hole
+2026-08-21 20:43:21,202 | WARNING | ETHUSDT 2021-05-14: no published file — hole
+2026-08-21 20:43:21,709 | WARNING | ETHUSDT 2021-05-15: no published file — hole
+2026-08-21 20:43:22,005 | WARNING | ETHUSDT 2021-05-16: no published file — hole
+2026-08-21 20:43:22,489 | WARNING | ETHUSDT 2021-05-17: no published file — hole
+2026-08-21 20:43:22,784 | WARNING | ETHUSDT 2021-05-18: no published file — hole
+2026-08-21 20:43:23,263 | WARNING | ETHUSDT 2021-05-19: no published file — hole
+2026-08-21 20:43:23,553 | WARNING | ETHUSDT 2021-05-20: no published file — hole
+2026-08-21 20:43:24,098 | WARNING | ETHUSDT 2021-05-21: no published file — hole
+2026-08-21 20:43:24,600 | WARNING | ETHUSDT 2021-05-22: no published file — hole
+2026-08-21 20:43:25,109 | WARNING | ETHUSDT 2021-05-23: no published file — hole
+2026-08-21 20:43:25,612 | WARNING | ETHUSDT 2021-05-24: no published file — hole
+2026-08-21 20:43:26,140 | WARNING | ETHUSDT 2021-05-25: no published file — hole
+2026-08-21 20:43:26,631 | WARNING | ETHUSDT 2021-05-26: no published file — hole
+2026-08-21 20:43:26,927 | WARNING | ETHUSDT 2021-05-27: no published file — hole
+2026-08-21 20:43:27,450 | WARNING | ETHUSDT 2021-05-28: no published file — hole
+2026-08-21 20:43:27,937 | WARNING | ETHUSDT 2021-05-29: no published file — hole
+2026-08-21 20:43:28,239 | WARNING | ETHUSDT 2021-05-30: no published file — hole
+2026-08-21 20:43:28,731 | WARNING | ETHUSDT 2021-05-31: no published file — hole
+2026-08-21 20:43:29,021 | WARNING | ETHUSDT 2021-06-01: no published file — hole
+2026-08-21 20:43:29,497 | WARNING | ETHUSDT 2021-06-02: no published file — hole
+2026-08-21 20:43:29,793 | WARNING | ETHUSDT 2021-06-03: no published file — hole
+2026-08-21 20:43:30,098 | WARNING | ETHUSDT 2021-06-04: no published file — hole
+2026-08-21 20:43:30,599 | WARNING | ETHUSDT 2021-06-05: no published file — hole
+2026-08-21 20:43:31,122 | WARNING | ETHUSDT 2021-06-06: no published file — hole
+2026-08-21 20:43:31,690 | WARNING | ETHUSDT 2021-06-07: no published file — hole
+2026-08-21 20:43:32,342 | WARNING | ETHUSDT 2021-06-08: no published file — hole
+2026-08-21 20:43:32,927 | WARNING | ETHUSDT 2021-06-09: no published file — hole
+2026-08-21 20:43:33,401 | WARNING | ETHUSDT 2021-06-10: no published file — hole
+2026-08-21 20:43:33,402 | INFO    | ETHUSDT: 200/2097 days (130.0 days/min, ETA 0.24h, 200 holes)
+2026-08-21 20:43:33,880 | WARNING | ETHUSDT 2021-06-11: no published file — hole
+2026-08-21 20:43:34,354 | WARNING | ETHUSDT 2021-06-12: no published file — hole
+2026-08-21 20:43:34,658 | WARNING | ETHUSDT 2021-06-13: no published file — hole
+2026-08-21 20:43:34,953 | WARNING | ETHUSDT 2021-06-14: no published file — hole
+2026-08-21 20:43:35,453 | WARNING | ETHUSDT 2021-06-15: no published file — hole
+2026-08-21 20:43:35,941 | WARNING | ETHUSDT 2021-06-16: no published file — hole
+2026-08-21 20:43:36,428 | WARNING | ETHUSDT 2021-06-17: no published file — hole
+2026-08-21 20:43:36,936 | WARNING | ETHUSDT 2021-06-18: no published file — hole
+2026-08-21 20:43:37,452 | WARNING | ETHUSDT 2021-06-19: no published file — hole
+2026-08-21 20:43:37,944 | WARNING | ETHUSDT 2021-06-20: no published file — hole
+2026-08-21 20:43:38,241 | WARNING | ETHUSDT 2021-06-21: no published file — hole
+2026-08-21 20:43:38,729 | WARNING | ETHUSDT 2021-06-22: no published file — hole
+2026-08-21 20:43:39,209 | WARNING | ETHUSDT 2021-06-23: no published file — hole
+2026-08-21 20:43:39,502 | WARNING | ETHUSDT 2021-06-24: no published file — hole
+2026-08-21 20:43:39,986 | WARNING | ETHUSDT 2021-06-25: no published file — hole
+2026-08-21 20:43:40,473 | WARNING | ETHUSDT 2021-06-26: no published file — hole
+2026-08-21 20:43:40,953 | WARNING | ETHUSDT 2021-06-27: no published file — hole
+2026-08-21 20:43:41,436 | WARNING | ETHUSDT 2021-06-28: no published file — hole
+2026-08-21 20:43:41,919 | WARNING | ETHUSDT 2021-06-29: no published file — hole
+2026-08-21 20:43:42,432 | WARNING | ETHUSDT 2021-06-30: no published file — hole
+2026-08-21 20:43:42,912 | WARNING | ETHUSDT 2021-07-01: no published file — hole
+2026-08-21 20:43:43,387 | WARNING | ETHUSDT 2021-07-02: no published file — hole
+2026-08-21 20:43:43,878 | WARNING | ETHUSDT 2021-07-03: no published file — hole
+2026-08-21 20:43:44,362 | WARNING | ETHUSDT 2021-07-04: no published file — hole
+2026-08-21 20:43:44,861 | WARNING | ETHUSDT 2021-07-05: no published file — hole
+2026-08-21 20:43:45,348 | WARNING | ETHUSDT 2021-07-06: no published file — hole
+2026-08-21 20:43:45,635 | WARNING | ETHUSDT 2021-07-07: no published file — hole
+2026-08-21 20:43:46,127 | WARNING | ETHUSDT 2021-07-08: no published file — hole
+2026-08-21 20:43:46,435 | WARNING | ETHUSDT 2021-07-09: no published file — hole
+2026-08-21 20:43:46,919 | WARNING | ETHUSDT 2021-07-10: no published file — hole
+2026-08-21 20:43:47,407 | WARNING | ETHUSDT 2021-07-11: no published file — hole
+2026-08-21 20:43:47,891 | WARNING | ETHUSDT 2021-07-12: no published file — hole
+2026-08-21 20:43:48,369 | WARNING | ETHUSDT 2021-07-13: no published file — hole
+2026-08-21 20:43:48,884 | WARNING | ETHUSDT 2021-07-14: no published file — hole
+2026-08-21 20:43:49,200 | WARNING | ETHUSDT 2021-07-15: no published file — hole
+2026-08-21 20:43:49,516 | WARNING | ETHUSDT 2021-07-16: no published file — hole
+2026-08-21 20:43:50,022 | WARNING | ETHUSDT 2021-07-17: no published file — hole
+2026-08-21 20:43:50,524 | WARNING | ETHUSDT 2021-07-18: no published file — hole
+2026-08-21 20:43:51,018 | WARNING | ETHUSDT 2021-07-19: no published file — hole
+2026-08-21 20:43:51,508 | WARNING | ETHUSDT 2021-07-20: no published file — hole
+2026-08-21 20:43:52,000 | WARNING | ETHUSDT 2021-07-21: no published file — hole
+2026-08-21 20:43:52,486 | WARNING | ETHUSDT 2021-07-22: no published file — hole
+2026-08-21 20:43:52,992 | WARNING | ETHUSDT 2021-07-23: no published file — hole
+2026-08-21 20:43:53,606 | WARNING | ETHUSDT 2021-07-24: no published file — hole
+2026-08-21 20:43:53,904 | WARNING | ETHUSDT 2021-07-25: no published file — hole
+2026-08-21 20:43:54,406 | WARNING | ETHUSDT 2021-07-26: no published file — hole
+2026-08-21 20:43:54,903 | WARNING | ETHUSDT 2021-07-27: no published file — hole
+2026-08-21 20:43:55,388 | WARNING | ETHUSDT 2021-07-28: no published file — hole
+2026-08-21 20:43:55,892 | WARNING | ETHUSDT 2021-07-29: no published file — hole
+2026-08-21 20:43:56,378 | WARNING | ETHUSDT 2021-07-30: no published file — hole
+2026-08-21 20:43:56,853 | WARNING | ETHUSDT 2021-07-31: no published file — hole
+2026-08-21 20:43:57,352 | WARNING | ETHUSDT 2021-08-01: no published file — hole
+2026-08-21 20:43:57,840 | WARNING | ETHUSDT 2021-08-02: no published file — hole
+2026-08-21 20:43:58,326 | WARNING | ETHUSDT 2021-08-03: no published file — hole
+2026-08-21 20:43:58,621 | WARNING | ETHUSDT 2021-08-04: no published file — hole
+2026-08-21 20:43:59,113 | WARNING | ETHUSDT 2021-08-05: no published file — hole
+2026-08-21 20:43:59,422 | WARNING | ETHUSDT 2021-08-06: no published file — hole
+2026-08-21 20:43:59,921 | WARNING | ETHUSDT 2021-08-07: no published file — hole
+2026-08-21 20:44:00,258 | WARNING | ETHUSDT 2021-08-08: no published file — hole
+2026-08-21 20:44:00,754 | WARNING | ETHUSDT 2021-08-09: no published file — hole
+2026-08-21 20:44:01,238 | WARNING | ETHUSDT 2021-08-10: no published file — hole
+2026-08-21 20:44:01,729 | WARNING | ETHUSDT 2021-08-11: no published file — hole
+2026-08-21 20:44:02,241 | WARNING | ETHUSDT 2021-08-12: no published file — hole
+2026-08-21 20:44:02,712 | WARNING | ETHUSDT 2021-08-13: no published file — hole
+2026-08-21 20:44:03,204 | WARNING | ETHUSDT 2021-08-14: no published file — hole
+2026-08-21 20:44:03,678 | WARNING | ETHUSDT 2021-08-15: no published file — hole
+2026-08-21 20:44:04,006 | WARNING | ETHUSDT 2021-08-16: no published file — hole
+2026-08-21 20:44:04,517 | WARNING | ETHUSDT 2021-08-17: no published file — hole
+2026-08-21 20:44:05,014 | WARNING | ETHUSDT 2021-08-18: no published file — hole
+2026-08-21 20:44:05,320 | WARNING | ETHUSDT 2021-08-19: no published file — hole
+2026-08-21 20:44:05,802 | WARNING | ETHUSDT 2021-08-20: no published file — hole
+2026-08-21 20:44:06,284 | WARNING | ETHUSDT 2021-08-21: no published file — hole
+2026-08-21 20:44:06,763 | WARNING | ETHUSDT 2021-08-22: no published file — hole
+2026-08-21 20:44:07,259 | WARNING | ETHUSDT 2021-08-23: no published file — hole
+2026-08-21 20:44:07,767 | WARNING | ETHUSDT 2021-08-24: no published file — hole
+2026-08-21 20:44:08,252 | WARNING | ETHUSDT 2021-08-25: no published file — hole
+2026-08-21 20:44:08,731 | WARNING | ETHUSDT 2021-08-26: no published file — hole
+2026-08-21 20:44:09,212 | WARNING | ETHUSDT 2021-08-27: no published file — hole
+2026-08-21 20:44:09,742 | WARNING | ETHUSDT 2021-08-28: no published file — hole
+2026-08-21 20:44:10,265 | WARNING | ETHUSDT 2021-08-29: no published file — hole
+2026-08-21 20:44:10,754 | WARNING | ETHUSDT 2021-08-30: no published file — hole
+2026-08-21 20:44:11,063 | WARNING | ETHUSDT 2021-08-31: no published file — hole
+2026-08-21 20:44:11,542 | WARNING | ETHUSDT 2021-09-01: no published file — hole
+2026-08-21 20:44:12,020 | WARNING | ETHUSDT 2021-09-02: no published file — hole
+2026-08-21 20:44:12,488 | WARNING | ETHUSDT 2021-09-03: no published file — hole
+2026-08-21 20:44:12,970 | WARNING | ETHUSDT 2021-09-04: no published file — hole
+2026-08-21 20:44:13,458 | WARNING | ETHUSDT 2021-09-05: no published file — hole
+2026-08-21 20:44:13,962 | WARNING | ETHUSDT 2021-09-06: no published file — hole
+2026-08-21 20:44:14,474 | WARNING | ETHUSDT 2021-09-07: no published file — hole
+2026-08-21 20:44:14,974 | WARNING | ETHUSDT 2021-09-08: no published file — hole
+2026-08-21 20:44:15,487 | WARNING | ETHUSDT 2021-09-09: no published file — hole
+2026-08-21 20:44:16,115 | WARNING | ETHUSDT 2021-09-10: no published file — hole
+2026-08-21 20:44:16,610 | WARNING | ETHUSDT 2021-09-11: no published file — hole
+2026-08-21 20:44:17,094 | WARNING | ETHUSDT 2021-09-12: no published file — hole
+2026-08-21 20:44:17,583 | WARNING | ETHUSDT 2021-09-13: no published file — hole
+2026-08-21 20:44:18,069 | WARNING | ETHUSDT 2021-09-14: no published file — hole
+2026-08-21 20:44:18,617 | WARNING | ETHUSDT 2021-09-15: no published file — hole
+2026-08-21 20:44:19,100 | WARNING | ETHUSDT 2021-09-16: no published file — hole
+2026-08-21 20:44:19,583 | WARNING | ETHUSDT 2021-09-17: no published file — hole
+2026-08-21 20:44:19,887 | WARNING | ETHUSDT 2021-09-18: no published file — hole
+2026-08-21 20:44:20,183 | WARNING | ETHUSDT 2021-09-19: no published file — hole
+2026-08-21 20:44:20,657 | WARNING | ETHUSDT 2021-09-20: no published file — hole
+2026-08-21 20:44:21,142 | WARNING | ETHUSDT 2021-09-21: no published file — hole
+2026-08-21 20:44:21,627 | WARNING | ETHUSDT 2021-09-22: no published file — hole
+2026-08-21 20:44:22,132 | WARNING | ETHUSDT 2021-09-23: no published file — hole
+2026-08-21 20:44:22,444 | WARNING | ETHUSDT 2021-09-24: no published file — hole
+2026-08-21 20:44:22,935 | WARNING | ETHUSDT 2021-09-25: no published file — hole
+2026-08-21 20:44:23,438 | WARNING | ETHUSDT 2021-09-26: no published file — hole
+2026-08-21 20:44:23,927 | WARNING | ETHUSDT 2021-09-27: no published file — hole
+2026-08-21 20:44:24,424 | WARNING | ETHUSDT 2021-09-28: no published file — hole
+2026-08-21 20:44:24,917 | WARNING | ETHUSDT 2021-09-29: no published file — hole
+2026-08-21 20:44:25,414 | WARNING | ETHUSDT 2021-09-30: no published file — hole
+2026-08-21 20:44:25,761 | WARNING | ETHUSDT 2021-10-01: no published file — hole
+2026-08-21 20:44:26,241 | WARNING | ETHUSDT 2021-10-02: no published file — hole
+2026-08-21 20:44:26,766 | WARNING | ETHUSDT 2021-10-03: no published file — hole
+2026-08-21 20:44:27,255 | WARNING | ETHUSDT 2021-10-04: no published file — hole
+2026-08-21 20:44:27,734 | WARNING | ETHUSDT 2021-10-05: no published file — hole
+2026-08-21 20:44:28,230 | WARNING | ETHUSDT 2021-10-06: no published file — hole
+2026-08-21 20:44:28,757 | WARNING | ETHUSDT 2021-10-07: no published file — hole
+2026-08-21 20:44:29,268 | WARNING | ETHUSDT 2021-10-08: no published file — hole
+2026-08-21 20:44:29,766 | WARNING | ETHUSDT 2021-10-09: no published file — hole
+2026-08-21 20:44:30,259 | WARNING | ETHUSDT 2021-10-10: no published file — hole
+2026-08-21 20:44:30,748 | WARNING | ETHUSDT 2021-10-11: no published file — hole
+2026-08-21 20:44:31,269 | WARNING | ETHUSDT 2021-10-12: no published file — hole
+2026-08-21 20:44:31,755 | WARNING | ETHUSDT 2021-10-13: no published file — hole
+2026-08-21 20:44:32,246 | WARNING | ETHUSDT 2021-10-14: no published file — hole
+2026-08-21 20:44:32,764 | WARNING | ETHUSDT 2021-10-15: no published file — hole
+2026-08-21 20:44:33,267 | WARNING | ETHUSDT 2021-10-16: no published file — hole
+2026-08-21 20:44:33,777 | WARNING | ETHUSDT 2021-10-17: no published file — hole
+2026-08-21 20:44:34,267 | WARNING | ETHUSDT 2021-10-18: no published file — hole
+2026-08-21 20:44:34,559 | WARNING | ETHUSDT 2021-10-19: no published file — hole
+2026-08-21 20:44:35,059 | WARNING | ETHUSDT 2021-10-20: no published file — hole
+2026-08-21 20:44:35,551 | WARNING | ETHUSDT 2021-10-21: no published file — hole
+2026-08-21 20:44:36,032 | WARNING | ETHUSDT 2021-10-22: no published file — hole
+2026-08-21 20:44:36,513 | WARNING | ETHUSDT 2021-10-23: no published file — hole
+2026-08-21 20:44:36,991 | WARNING | ETHUSDT 2021-10-24: no published file — hole
+2026-08-21 20:44:37,542 | WARNING | ETHUSDT 2021-10-25: no published file — hole
+2026-08-21 20:44:38,037 | WARNING | ETHUSDT 2021-10-26: no published file — hole
+2026-08-21 20:44:38,522 | WARNING | ETHUSDT 2021-10-27: no published file — hole
+2026-08-21 20:44:39,008 | WARNING | ETHUSDT 2021-10-28: no published file — hole
+2026-08-21 20:44:39,515 | WARNING | ETHUSDT 2021-10-29: no published file — hole
+2026-08-21 20:44:40,008 | WARNING | ETHUSDT 2021-10-30: no published file — hole
+2026-08-21 20:44:40,301 | WARNING | ETHUSDT 2021-10-31: no published file — hole
+2026-08-21 20:44:40,774 | WARNING | ETHUSDT 2021-11-01: no published file — hole
+2026-08-21 20:44:41,260 | WARNING | ETHUSDT 2021-11-02: no published file — hole
+2026-08-21 20:44:41,741 | WARNING | ETHUSDT 2021-11-03: no published file — hole
+2026-08-21 20:44:42,222 | WARNING | ETHUSDT 2021-11-04: no published file — hole
+2026-08-21 20:44:42,692 | WARNING | ETHUSDT 2021-11-05: no published file — hole
+2026-08-21 20:44:43,211 | WARNING | ETHUSDT 2021-11-06: no published file — hole
+2026-08-21 20:44:43,692 | WARNING | ETHUSDT 2021-11-07: no published file — hole
+2026-08-21 20:44:44,168 | WARNING | ETHUSDT 2021-11-08: no published file — hole
+2026-08-21 20:44:44,662 | WARNING | ETHUSDT 2021-11-09: no published file — hole
+2026-08-21 20:44:45,144 | WARNING | ETHUSDT 2021-11-10: no published file — hole
+2026-08-21 20:44:45,632 | WARNING | ETHUSDT 2021-11-11: no published file — hole
+2026-08-21 20:44:46,113 | WARNING | ETHUSDT 2021-11-12: no published file — hole
+2026-08-21 20:44:46,627 | WARNING | ETHUSDT 2021-11-13: no published file — hole
+2026-08-21 20:44:47,119 | WARNING | ETHUSDT 2021-11-14: no published file — hole
+2026-08-21 20:44:47,602 | WARNING | ETHUSDT 2021-11-15: no published file — hole
+2026-08-21 20:44:48,092 | WARNING | ETHUSDT 2021-11-16: no published file — hole
+2026-08-21 20:44:48,569 | WARNING | ETHUSDT 2021-11-17: no published file — hole
+2026-08-21 20:44:49,068 | WARNING | ETHUSDT 2021-11-18: no published file — hole
+2026-08-21 20:44:49,550 | WARNING | ETHUSDT 2021-11-19: no published file — hole
+2026-08-21 20:44:50,045 | WARNING | ETHUSDT 2021-11-20: no published file — hole
+2026-08-21 20:44:50,327 | WARNING | ETHUSDT 2021-11-21: no published file — hole
+2026-08-21 20:44:50,807 | WARNING | ETHUSDT 2021-11-22: no published file — hole
+2026-08-21 20:44:51,289 | WARNING | ETHUSDT 2021-11-23: no published file — hole
+2026-08-21 20:44:51,772 | WARNING | ETHUSDT 2021-11-24: no published file — hole
+2026-08-21 20:44:52,262 | WARNING | ETHUSDT 2021-11-25: no published file — hole
+2026-08-21 20:44:52,546 | WARNING | ETHUSDT 2021-11-26: no published file — hole
+2026-08-21 20:44:53,028 | WARNING | ETHUSDT 2021-11-27: no published file — hole
+2026-08-21 20:44:53,320 | WARNING | ETHUSDT 2021-11-28: no published file — hole
+2026-08-21 20:44:53,613 | WARNING | ETHUSDT 2021-11-29: no published file — hole
+2026-08-21 20:44:54,105 | WARNING | ETHUSDT 2021-11-30: no published file — hole
+2026-08-21 20:44:54,769 | INFO    | ETHUSDT: 2097/2097 days (724.4 days/min, ETA 0.00h, 373 holes)
+2026-08-21 20:44:54,770 | WARNING | ETHUSDT: 373 holes: ['2020-11-23', '2020-11-24', '2020-11-25', '2020-11-26', '2020-11-27', '2020-11-28', '2020-11-29', '2020-11-30']
+2026-08-21 20:45:09,880 | INFO    | ETHUSDT: merged 496369 rows -> D:\kp_ai_agent\Dataset_Fetcher\binance_full_dataset\processed\futures_um\metrics\ETHUSDT\merged.parquet (28.4 MB)
+2026-08-21 20:45:10,145 | INFO    | == build_final ==
+2026-08-21 20:45:10,292 | INFO    | onch BTC: 2387 days (2020-01-01 -> 2026-07-14)
+2026-08-21 20:45:10,448 | INFO    | == rebuild chain complete ==
+2026-08-21 20:45:10,501 | INFO    | killed old visualizer on port 8000 (pid 12868)
+2026-08-21 20:45:11,509 | INFO    | visualizer starting (pid 6464) -> http://127.0.0.1:8000
+2026-08-21 20:45:13,022 | INFO    | visualizer healthy: {"ok":true,"data_root":"D:\\kp_ai_agent\\Dataset_Fetcher\\BTC_True_Volume\\proce
+2026-08-21 20:45:13,023 | INFO    | === refresh complete in 8.9 min ===
+2026-08-21 20:45:13,023 | INFO    | data through 2026-08-20 (Vision publish lag ~1 day)

@@ -1,0 +1,19 @@
+# ---- nested working tree: the published Pages site is its own clone ----
+# site/ holds a separate clone of branch `main` (GitHub Pages deploy target,
+# written by publish_site.py). Never track it from here.
+site/
+
+# ---- oversized derived data ----
+# VSA 1m klines: 4 files of 160-200 MB each — over GitHub's 100 MB hard
+# limit. Carry by drive or rebuild (build_vsa_klines.py from
+# ../binance_full_dataset aggTrades). The small 1d/1h stores stay tracked.
+processed/vsa_klines/**/1m/merged.parquet
+
+# ---- python ----
+__pycache__/
+*.py[cod]
+
+# ---- secrets / local env ----
+.env
+.env.*
+.venv/

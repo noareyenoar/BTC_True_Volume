@@ -1,0 +1,94 @@
+2026-08-20 23:15:36,478 | INFO    | BTCUSDT: rollup loaded from cache (2417 days)
+2026-08-20 23:15:36,714 | INFO    | BTCUSDT: 1m full rollup — 2343 days (2343 rows scanned)
+D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py:213: Pandas4Warning: Sorting by default when concatenating all DatetimeIndex is deprecated.  In the future, pandas will respect the default of `sort=False`. Specify `sort=True` or `sort=False` to silence this message. If you see this warnings when not directly calling concat, report a bug to pandas.
+  j = pd.concat([k1d["volume"], k1m["volume"]], axis=1, keys=["d", "m"]).dropna()
+2026-08-20 23:15:36,865 | INFO    | BTCUSDT triple gate: ref_ok=2315 days, quarantined=4, volume {'days': 2315, 'days_outside_tol': 4, 'pct_ok': np.float64(99.82721382289417), 'worst_ratio': 0.9847168059810463, 'best_ratio': 1.0329126199726322}, taker-buy {'days': 2315, 'days_outside_tol': 7, 'pct_ok': np.float64(99.6976241900648), 'worst_ratio': 0.9836288776386691, 'best_ratio': 1.0340306410759306}
+2026-08-20 23:15:36,865 | WARNING | BTCUSDT quarantined days (1d/1m disagree): ['2023-08-16', '2023-11-10', '2025-01-14', '2025-01-29']
+2026-08-20 23:15:36,865 | WARNING | BTCUSDT: tape-vs-klines gate outside tolerance ONLY on verified kline-contaminated days — adjudicated vs Binance Vision official aggTrades (tape matches exactly); tape stands, days flagged
+2026-08-20 23:15:36,865 | INFO    | BTCUSDT: num_trades taken from 1m store on 20 days where the 1d file disagrees with the tape (2020-04-01, 2020-05-01, 2020-06-01, 2020-07-01, 2020-08-01, 2020-09-01, 2020-10-01, 2020-12-01)
+2026-08-20 23:15:36,899 | INFO    | log entry appended: step0 BTC COMPLETE
+2026-08-20 23:15:36,899 | INFO    | resuming ETH aggTrades 2026-06-17 -> 2026-08-19
+2026-08-20 23:23:59,672 | INFO    | ETHUSDT: streamed merged.parquet (26.62 GB on disk)
+2026-08-20 23:23:59,827 | INFO    | ETHUSDT: streamed 20260617.parquet (0.01 GB on disk)
+2026-08-20 23:23:59,939 | INFO    | ETHUSDT: streamed 20260618.parquet (0.01 GB on disk)
+2026-08-20 23:24:00,015 | INFO    | ETHUSDT: streamed 20260619.parquet (0.00 GB on disk)
+2026-08-20 23:24:00,077 | INFO    | ETHUSDT: streamed 20260620.parquet (0.00 GB on disk)
+2026-08-20 23:24:00,130 | INFO    | ETHUSDT: streamed 20260621.parquet (0.00 GB on disk)
+2026-08-20 23:24:00,222 | INFO    | ETHUSDT: streamed 20260622.parquet (0.01 GB on disk)
+2026-08-20 23:24:00,324 | INFO    | ETHUSDT: streamed 20260623.parquet (0.01 GB on disk)
+2026-08-20 23:24:00,476 | INFO    | ETHUSDT: streamed 20260624.parquet (0.01 GB on disk)
+2026-08-20 23:24:00,644 | INFO    | ETHUSDT: streamed 20260625.parquet (0.01 GB on disk)
+2026-08-20 23:24:00,797 | INFO    | ETHUSDT: streamed 20260626.parquet (0.01 GB on disk)
+2026-08-20 23:24:00,858 | INFO    | ETHUSDT: streamed 20260627.parquet (0.00 GB on disk)
+2026-08-20 23:24:00,921 | INFO    | ETHUSDT: streamed 20260628.parquet (0.00 GB on disk)
+2026-08-20 23:24:01,042 | INFO    | ETHUSDT: streamed 20260629.parquet (0.01 GB on disk)
+2026-08-20 23:24:01,114 | INFO    | ETHUSDT: streamed 20260630.parquet (0.00 GB on disk)
+2026-08-20 23:24:01,228 | INFO    | ETHUSDT: streamed 20260701.parquet (0.01 GB on disk)
+2026-08-20 23:24:01,342 | INFO    | ETHUSDT: streamed 20260702.parquet (0.01 GB on disk)
+2026-08-20 23:24:01,438 | INFO    | ETHUSDT: streamed 20260703.parquet (0.00 GB on disk)
+2026-08-20 23:24:01,515 | INFO    | ETHUSDT: streamed 20260704.parquet (0.00 GB on disk)
+2026-08-20 23:24:01,583 | INFO    | ETHUSDT: streamed 20260705.parquet (0.00 GB on disk)
+2026-08-20 23:24:01,687 | INFO    | ETHUSDT: streamed 20260706.parquet (0.01 GB on disk)
+2026-08-20 23:24:01,804 | INFO    | ETHUSDT: streamed 20260707.parquet (0.01 GB on disk)
+2026-08-20 23:24:01,920 | INFO    | ETHUSDT: streamed 20260708.parquet (0.01 GB on disk)
+2026-08-20 23:24:01,997 | INFO    | ETHUSDT: streamed 20260709.parquet (0.00 GB on disk)
+2026-08-20 23:24:02,099 | INFO    | ETHUSDT: streamed 20260710.parquet (0.00 GB on disk)
+2026-08-20 23:24:02,160 | INFO    | ETHUSDT: streamed 20260711.parquet (0.00 GB on disk)
+2026-08-20 23:24:02,215 | INFO    | ETHUSDT: streamed 20260712.parquet (0.00 GB on disk)
+2026-08-20 23:24:02,322 | INFO    | ETHUSDT: streamed 20260713.parquet (0.01 GB on disk)
+2026-08-20 23:24:02,422 | INFO    | ETHUSDT: streamed 20260714.parquet (0.01 GB on disk)
+2026-08-20 23:24:02,524 | INFO    | ETHUSDT: streamed 20260715.parquet (0.00 GB on disk)
+2026-08-20 23:24:02,608 | INFO    | ETHUSDT: streamed 20260716.parquet (0.00 GB on disk)
+2026-08-20 23:24:02,704 | INFO    | ETHUSDT: streamed 20260717.parquet (0.00 GB on disk)
+2026-08-20 23:24:02,740 | INFO    | ETHUSDT: streamed 20260718.parquet (0.00 GB on disk)
+2026-08-20 23:24:02,791 | INFO    | ETHUSDT: streamed 20260719.parquet (0.00 GB on disk)
+2026-08-20 23:24:02,900 | INFO    | ETHUSDT: streamed 20260720.parquet (0.01 GB on disk)
+2026-08-20 23:24:02,969 | INFO    | ETHUSDT: streamed 20260721.parquet (0.00 GB on disk)
+2026-08-20 23:24:03,057 | INFO    | ETHUSDT: streamed 20260722.parquet (0.00 GB on disk)
+2026-08-20 23:24:03,175 | INFO    | ETHUSDT: streamed 20260723.parquet (0.00 GB on disk)
+2026-08-20 23:24:03,242 | INFO    | ETHUSDT: streamed 20260724.parquet (0.00 GB on disk)
+2026-08-20 23:24:03,280 | INFO    | ETHUSDT: streamed 20260725.parquet (0.00 GB on disk)
+2026-08-20 23:24:03,333 | INFO    | ETHUSDT: streamed 20260726.parquet (0.00 GB on disk)
+2026-08-20 23:24:03,436 | INFO    | ETHUSDT: streamed 20260727.parquet (0.01 GB on disk)
+2026-08-20 23:24:03,530 | INFO    | ETHUSDT: streamed 20260728.parquet (0.00 GB on disk)
+2026-08-20 23:24:03,638 | INFO    | ETHUSDT: streamed 20260729.parquet (0.01 GB on disk)
+2026-08-20 23:24:03,702 | INFO    | ETHUSDT: streamed 20260730.parquet (0.00 GB on disk)
+2026-08-20 23:24:03,766 | INFO    | ETHUSDT: streamed 20260731.parquet (0.00 GB on disk)
+2026-08-20 23:24:03,821 | INFO    | ETHUSDT: streamed 20260801.parquet (0.00 GB on disk)
+2026-08-20 23:24:03,874 | INFO    | ETHUSDT: streamed 20260802.parquet (0.00 GB on disk)
+2026-08-20 23:24:03,947 | INFO    | ETHUSDT: streamed 20260803.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,015 | INFO    | ETHUSDT: streamed 20260804.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,081 | INFO    | ETHUSDT: streamed 20260805.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,137 | INFO    | ETHUSDT: streamed 20260806.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,200 | INFO    | ETHUSDT: streamed 20260807.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,223 | INFO    | ETHUSDT: streamed 20260808.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,248 | INFO    | ETHUSDT: streamed 20260809.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,318 | INFO    | ETHUSDT: streamed 20260810.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,360 | INFO    | ETHUSDT: streamed 20260811.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,425 | INFO    | ETHUSDT: streamed 20260812.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,473 | INFO    | ETHUSDT: streamed 20260813.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,529 | INFO    | ETHUSDT: streamed 20260814.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,553 | INFO    | ETHUSDT: streamed 20260815.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,574 | INFO    | ETHUSDT: streamed 20260816.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,633 | INFO    | ETHUSDT: streamed 20260817.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,678 | INFO    | ETHUSDT: streamed 20260818.parquet (0.00 GB on disk)
+2026-08-20 23:24:04,883 | INFO    | ETHUSDT: streamed 20260819.parquet (0.01 GB on disk)
+2026-08-20 23:24:04,897 | INFO    | ETHUSDT: rollup done — 2423 days, 3052422331 aggTrades records
+2026-08-20 23:24:04,906 | INFO    | ETHUSDT: rollup cached -> D:\kp_ai_agent\Dataset_Fetcher\processed\rollup_cache\ETHUSDT.parquet
+2026-08-20 23:24:05,442 | INFO    | ETHUSDT: 1m full rollup — 2343 days (2343 rows scanned)
+D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py:213: Pandas4Warning: Sorting by default when concatenating all DatetimeIndex is deprecated.  In the future, pandas will respect the default of `sort=False`. Specify `sort=True` or `sort=False` to silence this message. If you see this warnings when not directly calling concat, report a bug to pandas.
+  j = pd.concat([k1d["volume"], k1m["volume"]], axis=1, keys=["d", "m"]).dropna()
+2026-08-20 23:24:05,970 | INFO    | ETHUSDT triple gate: ref_ok=2315 days, quarantined=4, volume {'days': 2315, 'days_outside_tol': 9, 'pct_ok': np.float64(99.61123110151188), 'worst_ratio': 0.9548904424316628, 'best_ratio': 2.0}, taker-buy {'days': 2315, 'days_outside_tol': 7, 'pct_ok': np.float64(99.6976241900648), 'worst_ratio': 0.9591857251391752, 'best_ratio': 2.0}
+2026-08-20 23:24:05,970 | WARNING | ETHUSDT quarantined days (1d/1m disagree): ['2023-08-16', '2023-11-14', '2025-01-14', '2025-01-29']
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py", line 632, in <module>
+    status="COMPLETE",
+^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py", line 625, in main
+    continue
+      ^^^^^^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py", line 475, in build_exchange_true_volume
+    raise RuntimeError(
+RuntimeError: ETHUSDT: tape-vs-klines gate FAILED on 2315 self-consistent days — volume {'days': 2315, 'days_outside_tol': 9, 'pct_ok': np.float64(99.61123110151188), 'worst_ratio': 0.9548904424316628, 'best_ratio': 2.0} (unverified bad days: ['2022-09-11', '2022-09-12', '2022-09-13', '2026-05-19', '2026-05-20']), taker {'days': 2315, 'days_outside_tol': 7, 'pct_ok': np.float64(99.6976241900648), 'worst_ratio': 0.9591857251391752, 'best_ratio': 2.0} (unverified: ['2022-09-11', '2022-09-12', '2022-09-13']). Do not proceed with a suspect tape (INCOMPLETE by design).

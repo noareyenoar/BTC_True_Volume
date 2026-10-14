@@ -1,0 +1,238 @@
+{
+  "version": 1,
+  "BTCUSDT": {
+    "2021-02-09": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 379279.878,
+      "tape_taker_buy": 184543.865,
+      "verified_utc": "2026-08-23T05:18:56+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\BTCUSDT\\merged.parquet",
+        "mtime_ns": 1786714093350794100,
+        "size": 28960969542
+      }
+    },
+    "2021-05-19": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 1356733.3620000002,
+      "tape_taker_buy": 659937.544,
+      "verified_utc": "2026-08-23T05:18:56+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\BTCUSDT\\merged.parquet",
+        "mtime_ns": 1786714093350794100,
+        "size": 28960969542
+      }
+    },
+    "2022-09-06": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 931039.048,
+      "tape_taker_buy": 443147.96400000004,
+      "verified_utc": "2026-08-23T05:18:56+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\BTCUSDT\\merged.parquet",
+        "mtime_ns": 1786714093350794100,
+        "size": 28960969542
+      }
+    },
+    "2024-10-28": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 264558.486,
+      "tape_taker_buy": 140478.119,
+      "verified_utc": "2026-08-23T05:18:56+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\BTCUSDT\\merged.parquet",
+        "mtime_ns": 1786714093350794100,
+        "size": 28960969542
+      }
+    },
+    "2026-05-09": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 55871.329,
+      "tape_taker_buy": 28830.811,
+      "verified_utc": "2026-08-23T05:18:56+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\BTCUSDT\\merged.parquet",
+        "mtime_ns": 1786714093350794100,
+        "size": 28960969542
+      }
+    },
+    "2026-05-15": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 153598.588,
+      "tape_taker_buy": 76543.042,
+      "verified_utc": "2026-08-23T05:18:56+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\BTCUSDT\\merged.parquet",
+        "mtime_ns": 1786714093350794100,
+        "size": 28960969542
+      }
+    },
+    "2026-05-20": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 107438.78899999999,
+      "tape_taker_buy": 54070.15,
+      "verified_utc": "2026-08-23T05:18:56+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\BTCUSDT\\merged.parquet",
+        "mtime_ns": 1786714093350794100,
+        "size": 28960969542
+      }
+    },
+    "2026-06-02": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 345606.318,
+      "tape_taker_buy": 165436.634,
+      "verified_utc": "2026-08-23T05:18:56+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\BTCUSDT\\merged.parquet",
+        "mtime_ns": 1786714093350794100,
+        "size": 28960969542
+      }
+    },
+    "2026-06-03": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 310114.519,
+      "tape_taker_buy": 148814.94199999998,
+      "verified_utc": "2026-08-23T05:18:56+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\BTCUSDT\\merged.parquet",
+        "mtime_ns": 1786714093350794100,
+        "size": 28960969542
+      }
+    },
+    "2026-06-04": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 430108.843,
+      "tape_taker_buy": 212647.47499999998,
+      "verified_utc": "2026-08-23T05:18:56+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\BTCUSDT\\merged.parquet",
+        "mtime_ns": 1786714093350794100,
+        "size": 28960969542
+      }
+    },
+    "2026-06-07": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 217042.712,
+      "tape_taker_buy": 112549.656,
+      "verified_utc": "2026-08-23T05:18:56+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\BTCUSDT\\merged.parquet",
+        "mtime_ns": 1786714093350794100,
+        "size": 28960969542
+      }
+    }
+  },
+  "ETHUSDT": {
+    "2021-02-09": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 3375802.975,
+      "tape_taker_buy": 1622464.242,
+      "verified_utc": "2026-08-23T05:20:36+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\ETHUSDT\\merged.parquet",
+        "mtime_ns": 1786785246601354200,
+        "size": 26624709366
+      }
+    },
+    "2021-05-19": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 10046305.522999998,
+      "tape_taker_buy": 4841651.372,
+      "verified_utc": "2026-08-23T05:20:36+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\ETHUSDT\\merged.parquet",
+        "mtime_ns": 1786785246601354200,
+        "size": 26624709366
+      }
+    },
+    "2022-09-06": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 10576846.115,
+      "tape_taker_buy": 5300376.021,
+      "verified_utc": "2026-08-23T05:20:36+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\ETHUSDT\\merged.parquet",
+        "mtime_ns": 1786785246601354200,
+        "size": 26624709366
+      }
+    },
+    "2022-09-11": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 7818990.602,
+      "tape_taker_buy": 3847980.7019999996,
+      "verified_utc": "2026-08-23T05:20:36+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\ETHUSDT\\merged.parquet",
+        "mtime_ns": 1786785246601354200,
+        "size": 26624709366
+      }
+    },
+    "2022-09-12": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 13025836.778,
+      "tape_taker_buy": 6476936.546,
+      "verified_utc": "2026-08-23T05:20:36+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\ETHUSDT\\merged.parquet",
+        "mtime_ns": 1786785246601354200,
+        "size": 26624709366
+      }
+    },
+    "2022-09-13": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 19321722.842,
+      "tape_taker_buy": 9517909.614,
+      "verified_utc": "2026-08-23T05:20:36+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\ETHUSDT\\merged.parquet",
+        "mtime_ns": 1786785246601354200,
+        "size": 26624709366
+      }
+    },
+    "2024-10-28": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 2973908.168,
+      "tape_taker_buy": 1539604.939,
+      "verified_utc": "2026-08-23T05:20:36+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\ETHUSDT\\merged.parquet",
+        "mtime_ns": 1786785246601354200,
+        "size": 26624709366
+      }
+    },
+    "2026-05-19": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 3191219.173,
+      "tape_taker_buy": 1576700.7,
+      "verified_utc": "2026-08-23T05:20:36+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\ETHUSDT\\merged.parquet",
+        "mtime_ns": 1786785246601354200,
+        "size": 26624709366
+      }
+    },
+    "2026-05-20": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 2816223.72,
+      "tape_taker_buy": 1463280.204,
+      "verified_utc": "2026-08-23T05:20:36+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\ETHUSDT\\merged.parquet",
+        "mtime_ns": 1786785246601354200,
+        "size": 26624709366
+      }
+    },
+    "2026-06-04": {
+      "verdict": "tape_matches_official",
+      "tape_vol": 8383342.723999999,
+      "tape_taker_buy": 4136166.7180000003,
+      "verified_utc": "2026-08-23T05:20:36+00:00",
+      "source": {
+        "file": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\aggTrades\\ETHUSDT\\merged.parquet",
+        "mtime_ns": 1786785246601354200,
+        "size": 26624709366
+      }
+    }
+  }
+}

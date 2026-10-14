@@ -1,0 +1,22 @@
+2026-08-20 22:58:56,317 | INFO    | BTCUSDT: streamed merged.parquet (28.96 GB on disk)
+2026-08-20 22:58:56,333 | INFO    | BTCUSDT: rollup done — 2417 days, 3389054178 aggTrades records
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py", line 586, in <module>
+    main()
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py", line 579, in main
+    res = build_exchange_true_volume(sym, resume=args.resume_aggtrades, force=args.force)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py", line 416, in build_exchange_true_volume
+    rollup = rollup_aggtrades_daily(sym, files, force)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py", line 121, in rollup_aggtrades_daily
+    pq.write_table(out.reset_index(), tmp, compression="zstd", version="2.6")
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\pyarrow\parquet\core.py", line 2022, in write_table
+    where, table.schema,
+           ^^^^^^^^^^^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\pandas\core\generic.py", line 6206, in __getattr__
+    return object.__getattribute__(self, name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'DataFrame' object has no attribute 'schema'

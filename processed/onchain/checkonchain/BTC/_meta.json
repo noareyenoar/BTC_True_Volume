@@ -1,0 +1,16 @@
+{
+  "dataset_id": "checkonchain_urpd_snapshot",
+  "description": "Latest checkonchain URPD snapshot (price-bucket supply histogram), decoded from the public GitHub Pages chart HTML",
+  "data_source": "checkonchain_public_github_pages",
+  "confidence_tier": "Medium",
+  "captured_from": "https://raw.githubusercontent.com/checkmatey/checkonchain.com/main/btconchain/urpd/urpd/urpd_dark.html",
+  "data_vintage": "2026-02-19",
+  "known_limitations": [
+    "BTC-UTXO-only snapshot \u2014 no ETH equivalent, not a volume series",
+    "commercial brand content: robots.txt permits crawling; treat as investigation artifact",
+    "SOURCE FROZEN: the repo's last data commit is 2026-02-19; chart commits since are logos only. captured_utc is the fetch date, not the vintage.",
+    "superseded for coverage purposes by fetch_checkonchain_urpd.py, which collects the whole free urpd/ family (35 dated curves + diffs + cohorts)"
+  ],
+  "generated_utc": "2026-09-20T06:20:58.408635+00:00",
+  "row_count": 630
+}

@@ -1,0 +1,19 @@
+2026-08-20 22:47:41,935 | INFO    | BTCUSDT: streamed merged.parquet (28.96 GB on disk)
+2026-08-20 22:47:41,951 | INFO    | BTCUSDT: rollup done — 2417 days, 3389054178 aggTrades records
+D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py:157: Pandas4Warning: Sorting by default when concatenating all DatetimeIndex is deprecated.  In the future, pandas will respect the default of `sort=False`. Specify `sort=True` or `sort=False` to silence this message. If you see this warnings when not directly calling concat, report a bug to pandas.
+  j = pd.concat([series_a, series_b], axis=1, keys=["a", "b"]).dropna()
+D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py:157: Pandas4Warning: Sorting by default when concatenating all DatetimeIndex is deprecated.  In the future, pandas will respect the default of `sort=False`. Specify `sort=True` or `sort=False` to silence this message. If you see this warnings when not directly calling concat, report a bug to pandas.
+  j = pd.concat([series_a, series_b], axis=1, keys=["a", "b"]).dropna()
+2026-08-20 22:47:43,033 | INFO    | BTCUSDT cross-validation: volume {'days': 2342, 'days_outside_tol': 10, 'pct_ok': np.float64(99.57301451750641), 'worst_ratio': 0.9681361043168354, 'best_ratio': 1.0155203952305125}
+2026-08-20 22:47:43,033 | INFO    | BTCUSDT cross-validation: taker-buy {'days': 2342, 'days_outside_tol': 14, 'pct_ok': np.float64(99.40222032450896), 'worst_ratio': 0.9670893301183796, 'best_ratio': 1.0166435967197627}
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py", line 479, in <module>
+    main()
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py", line 472, in main
+    res = build_exchange_true_volume(sym, resume=args.resume_aggtrades)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py", line 347, in build_exchange_true_volume
+    raise RuntimeError(
+RuntimeError: BTCUSDT: cross-validation FAILED — volume {'days': 2342, 'days_outside_tol': 10, 'pct_ok': np.float64(99.57301451750641), 'worst_ratio': 0.9681361043168354, 'best_ratio': 1.0155203952305125}, taker {'days': 2342, 'days_outside_tol': 14, 'pct_ok': np.float64(99.40222032450896), 'worst_ratio': 0.9670893301183796, 'best_ratio': 1.0166435967197627}. Do not proceed with a suspect tape (INCOMPLETE by design).

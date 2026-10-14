@@ -1,0 +1,54 @@
+{
+  "dataset_id": "checkonchain_checkonchain_series",
+  "description": "Age-cohort series (LTH/STH supply in profit & loss, SOPR, realised P&L by band, STH-MVRV) in long form",
+  "data_source": "checkonchain_public_github_pages",
+  "confidence_tier": "Medium",
+  "captured_from": "https://charts-cdn.checkonchain.com (current charts) + https://github.com/checkmatey/checkonchain.com (frozen history)",
+  "source_hosts": {
+    "live": "https://charts-cdn.checkonchain.com",
+    "frozen_mirror": "https://raw.githubusercontent.com/checkmatey/checkonchain.com/main"
+  },
+  "charts_live": 22,
+  "charts_frozen": 28,
+  "windows_retired": [
+    14
+  ],
+  "tree_sha": "7bc058abb3185b0c606a06b9b89bbe94b98b268f",
+  "data_vintage": "2026-10-13",
+  "known_limitations": [
+    "TWO SOURCES, ONE STORE: current charts come from the live host (charts-cdn.checkonchain.com), the dated history from the frozen GitHub mirror (last data commit 2026-02-19) and our raw cache. `tree_sha` is the mirror revision the history came from -- it is not a freshness signal.",
+    "The 14-day diff window is retired upstream: the live host 404s it. It is skipped outright rather than summed from mixed vintages; live windows are 30/90/180/365d.",
+    "Live charts bucket at $500, the mirror generation at $200. Each dated curve keeps the grid it arrived on and the two are never merged into one curve.",
+    "Where the source's own charts disagree, the value carried by the most charts wins: on 2026-09-20 the live snapshot page's curve is 17.79M BTC against the six live diff charts' 20.09M for the same day, and the diff family is the one its own history corroborates.",
+    "`price_usd` rides along in every series chart and those copies differ (median 0.2% in 2022-2026, up to 30% before 2016); the most-supported copy is kept rather than whichever chart listed first.",
+    "BTC-UTXO-only (no ETH equivalent) -- URPD is a UTXO-chain concept.",
+    "Third-party computed: derived by checkonchain's own node, not this project's.",
+    "Public free chart pages (Plotly payloads in static HTML); robots-permitted, commercial brand content -- treat as investigation artifact.",
+    "Historical dated curves are source-computed for fixed windows; the curve store is what makes arbitrary date pairs possible.",
+    "The $0 price bucket holds ~2.8M BTC and is excluded from overlay series."
+  ],
+  "metrics": [
+    "etf_net_flow_usd",
+    "lth_loss_share",
+    "lth_profit_share",
+    "lth_supply_btc",
+    "lth_supply_loss_btc",
+    "lth_supply_profit_btc",
+    "lth_supply_share",
+    "price_usd",
+    "realized_loss_btc",
+    "realized_profit_btc",
+    "sopr",
+    "sopr_ema_7d",
+    "sth_loss_share",
+    "sth_mvrv",
+    "sth_profit_share",
+    "sth_realized_price_usd",
+    "sth_supply_btc",
+    "sth_supply_loss_btc",
+    "sth_supply_profit_btc",
+    "sth_supply_share"
+  ],
+  "generated_utc": "2026-10-14T04:38:53.834847+00:00",
+  "row_count": 117888
+}

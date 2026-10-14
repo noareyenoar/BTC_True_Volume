@@ -1,0 +1,19 @@
+2026-08-20 23:03:33,352 | INFO    | BTCUSDT: streamed merged.parquet (28.96 GB on disk)
+2026-08-20 23:03:33,363 | INFO    | BTCUSDT: rollup done — 2417 days, 3389054178 aggTrades records
+2026-08-20 23:03:33,387 | INFO    | BTCUSDT: rollup cached -> D:\kp_ai_agent\Dataset_Fetcher\processed\rollup_cache\BTCUSDT.parquet
+2026-08-20 23:03:34,132 | INFO    | BTCUSDT: 1m full rollup — 2343 days (2343 rows scanned)
+D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py:202: Pandas4Warning: Sorting by default when concatenating all DatetimeIndex is deprecated.  In the future, pandas will respect the default of `sort=False`. Specify `sort=True` or `sort=False` to silence this message. If you see this warnings when not directly calling concat, report a bug to pandas.
+  j = pd.concat([k1d["volume"], k1m["volume"]], axis=1, keys=["d", "m"]).dropna()
+2026-08-20 23:03:34,686 | INFO    | BTCUSDT triple gate: ref_ok=2315 days, quarantined=4, volume {'days': 2315, 'days_outside_tol': 4, 'pct_ok': np.float64(99.82721382289417), 'worst_ratio': 0.9847168059810463, 'best_ratio': 1.0329126199726322}, taker-buy {'days': 2315, 'days_outside_tol': 7, 'pct_ok': np.float64(99.6976241900648), 'worst_ratio': 0.9836288776386691, 'best_ratio': 1.0340306410759306}
+2026-08-20 23:03:34,686 | WARNING | BTCUSDT quarantined days (1d/1m disagree): ['2023-08-16', '2023-11-10', '2025-01-14', '2025-01-29']
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py", line 588, in <module>
+    main()
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py", line 581, in main
+    res = build_exchange_true_volume(sym, resume=args.resume_aggtrades, force=args.force)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\BTC_True_Volume\exchange_true_volume.py", line 439, in build_exchange_true_volume
+    raise RuntimeError(
+RuntimeError: BTCUSDT: tape-vs-klines gate FAILED on 2315 self-consistent days — volume {'days': 2315, 'days_outside_tol': 4, 'pct_ok': np.float64(99.82721382289417), 'worst_ratio': 0.9847168059810463, 'best_ratio': 1.0329126199726322}, taker {'days': 2315, 'days_outside_tol': 7, 'pct_ok': np.float64(99.6976241900648), 'worst_ratio': 0.9836288776386691, 'best_ratio': 1.0340306410759306}. Do not proceed with a suspect tape (INCOMPLETE by design).

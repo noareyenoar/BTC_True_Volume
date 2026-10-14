@@ -1,0 +1,17 @@
+{
+  "dataset_id": "options_verification_eth_daily",
+  "description": "Deribit options verification snapshot for ETH (put/call OI + volume ratios)",
+  "data_source": "deribit_public_api",
+  "confidence_tier": "Low",
+  "coverage": [
+    "2026-08-14",
+    "2026-08-14"
+  ],
+  "snapshot_count": 1,
+  "known_limitations": [
+    "single-snapshot verification only \u2014 NaN outside covered days",
+    "volume_24h is Deribit-reported rolling 24h per instrument, not an audited tape"
+  ],
+  "generated_utc": "2026-08-20T16:47:16.227119+00:00",
+  "row_count": 1
+}

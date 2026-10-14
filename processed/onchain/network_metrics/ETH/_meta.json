@@ -1,0 +1,16 @@
+{
+  "dataset_id": "onchain_network_metrics_eth_daily",
+  "description": "Ethereum network-level metrics (Etherscan dailytx or CoinMetrics TxCnt fallback)",
+  "data_source": "coinmetrics_community_api",
+  "coverage": [
+    "2015-07-30",
+    "2026-10-13"
+  ],
+  "known_limitations": [
+    "transaction counts are network-level; no exchange segmentation",
+    "Etherscan unavailable (no free API key in .env); used CoinMetrics TxCnt instead. Add ETHERSCAN_API_KEY (free tier) to D:\\kp_ai_agent\\Dataset_Fetcher\\.env and re-run --phases phase1_eth to upgrade to full dailytx fields."
+  ],
+  "confidence_tier": "Medium",
+  "generated_utc": "2026-10-14T04:37:38.264979+00:00",
+  "row_count": 4094
+}

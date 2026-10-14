@@ -1,0 +1,15 @@
+{
+  "dataset_id": "vsa_klines_futures_um_BTCUSDT_1m",
+  "description": "VSA-audited klines futures_um BTCUSDT 1m \u2014 gap-flagged, cross-filled artifact days flagged, 0 OHLC violations (audit 2026-08-21)",
+  "data_source": "binance_vision_klines; cross-fill: dataset_1d_symbols_crossfill",
+  "confidence_tier": "High (source) / flagged fills marked",
+  "generated_utc": "2026-10-14T04:37:12.904142+00:00",
+  "row_count": 3566856,
+  "n_is_gap": 23,
+  "n_cross_filled": 0,
+  "known_limitations": [
+    "is_gap bars are genuine missing slots \u2014 visualizer must render them as gaps, never interpolate",
+    "spot 1d days missing from the kline store filled from dataset_1d/symbols with cross_filled=True (88 month-first artifact + days beyond the store's 2024-12-31 end)",
+    "futures 1d source naming is asymmetric in the store (BTCUSDT-1d.parquet vs merged.parquet) \u2014 glob-resolved"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "generated_utc": "2026-10-13T07:10:09.372968+00:00",
+  "results": {
+    "step0_exchange": [],
+    "phase1_network": [],
+    "phase2_positioning": [],
+    "phase5_realized_cap": [],
+    "final_deliverable": [],
+    "cb_archive": [],
+    "cb_archive_export": [],
+    "cb_dated_custom": [],
+    "etf_flows": [],
+    "registry_and_log": []
+  },
+  "passed": {
+    "step0_exchange": true,
+    "phase1_network": true,
+    "phase2_positioning": true,
+    "phase5_realized_cap": true,
+    "final_deliverable": true,
+    "cb_archive": true,
+    "cb_archive_export": true,
+    "cb_dated_custom": true,
+    "etf_flows": true,
+    "registry_and_log": true
+  }
+}

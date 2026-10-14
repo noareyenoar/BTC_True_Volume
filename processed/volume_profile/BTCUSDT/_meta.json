@@ -1,0 +1,16 @@
+{
+  "symbol": "BTCUSDT",
+  "bucket_width_usd": 100.0,
+  "n_buckets_max": 1500,
+  "rows": 54348,
+  "days": 2477,
+  "day_span": [
+    "2020-01-01",
+    "2026-10-12"
+  ],
+  "coverage_pct": 100.0,
+  "total_quote_usd": 32368182372272.957,
+  "source": "binance_full_dataset futures_um aggTrades tape (Binance USD-M only)",
+  "note": "traded notional by price level; per day only buckets that traded. cover one venue only (Binance USD-M futures).",
+  "generated_utc": "2026-10-14T04:37:15.292374+00:00"
+}

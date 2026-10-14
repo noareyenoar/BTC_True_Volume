@@ -1,0 +1,46 @@
+{
+  "dataset_id": "true_volume_btc_daily",
+  "description": "BTC daily true-volume proxy stack \u2014 exchange tape volume, network metrics, realized cap, positioning, options verification",
+  "data_source": "merged multi-source (see blocks_meta)",
+  "confidence_tier": "per-block (see *_data_source / *_confidence_tier columns)",
+  "blocks_meta": {
+    "exch": [
+      "binance_vision_aggtrades",
+      "High"
+    ],
+    "net": [
+      "blockchain.com_charts_api",
+      "High"
+    ],
+    "rc": [
+      "coinmetrics_community_derived",
+      "Medium"
+    ],
+    "pos": [
+      "binance_vision_metrics",
+      "Medium"
+    ],
+    "pos_options": [
+      "deribit_public_api",
+      "Low"
+    ],
+    "onch": [
+      "onchain_dataset_local",
+      "Medium"
+    ]
+  },
+  "coverage": [
+    "2009-01-03",
+    "2026-10-13"
+  ],
+  "row_count": 6493,
+  "known_limitations": [
+    "every metric is a PROXY \u2014 never literal true volume; per-block tier labels apply",
+    "spot klines stale after 2024-12-31 (exch_coverage_mode flags futures_only days)",
+    "onch block ends 2026-07-14 (local onchain_dataset) \u2014 NaN after for BTC",
+    "pos block: top-trader ratios are the top-20% cohort sentiment proxy, not exchange-wide OI",
+    "pos_options block: single-snapshot verification (2026-08-14) \u2014 NaN elsewhere",
+    "net block BTC includes non-trading transfers (settled-value proxy)"
+  ],
+  "generated_utc": "2026-10-14T04:37:54.159005+00:00"
+}

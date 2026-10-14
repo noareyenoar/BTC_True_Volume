@@ -1,0 +1,29 @@
+{
+  "dataset_id": "onchain_realized_cap_btc_daily",
+  "description": "BTC realized cap derived from CoinMetrics free metrics (CapMrktCurUSD/CapMVRVCur \u2014 same derivation as onchain_dataset)",
+  "data_source": "coinmetrics_community_derived",
+  "coverage": [
+    "2009-01-03",
+    "2026-10-13"
+  ],
+  "derivation": "rc_realized_cap_usd = CapMrktCurUSD / CapMVRVCur; rc_realized_price_usd = rc_realized_cap_usd / SplyCur; rc_mvrv_ratio = CapMrktCurUSD / rc_realized_cap_usd",
+  "cross_check_vs_local_onchain": {
+    "done": true,
+    "days": 2387,
+    "max_rel_diff": 0.0020290772036868385,
+    "mean_rel_diff": 1.6444634470070958e-06,
+    "pass_2pct": true,
+    "overlap": [
+      "2020-01-01",
+      "2026-07-14"
+    ]
+  },
+  "known_limitations": [
+    "aggregate cap only \u2014 no price-bucket / LTH-STH split (CapRealUSD requires paid tier)",
+    "CapMrktCurUSD is circulating-market-cap, includes staked/locked coins",
+    "FlowInExNtv/FlowOutExNtv are exchange-wallet flow estimates, not audited tapes"
+  ],
+  "confidence_tier": "Medium",
+  "generated_utc": "2026-10-14T04:37:40.450705+00:00",
+  "row_count": 6493
+}

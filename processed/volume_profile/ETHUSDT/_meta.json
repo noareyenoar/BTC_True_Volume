@@ -1,0 +1,16 @@
+{
+  "symbol": "ETHUSDT",
+  "bucket_width_usd": 2.5,
+  "n_buckets_max": 2400,
+  "rows": 128625,
+  "days": 2477,
+  "day_span": [
+    "2020-01-01",
+    "2026-10-12"
+  ],
+  "coverage_pct": 100.0,
+  "total_quote_usd": 19347637902277.715,
+  "source": "binance_full_dataset futures_um aggTrades tape (Binance USD-M only)",
+  "note": "traded notional by price level; per day only buckets that traded. cover one venue only (Binance USD-M futures).",
+  "generated_utc": "2026-10-14T04:37:15.559929+00:00"
+}

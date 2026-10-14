@@ -1,0 +1,14 @@
+{
+  "dataset_id": "large_trades_ETHUSDT",
+  "description": "Daily large-block notional (Tier-3 proxy, mm_proxy_criteria_report.md \u00a75.2): sum of futures aggTrades notional above the day's 99.9th percentile",
+  "data_source": "binance_vision_aggtrades (tape)",
+  "confidence_tier": "Medium (Tier-3 statistical proxy \u2014 not identity)",
+  "generated_utc": "2026-10-14T04:37:15.132271+00:00",
+  "row_count": 2477,
+  "coverage": "2020-01-01 -> 2026-10-12",
+  "known_limitations": [
+    "threshold is the day's own 99.9th percentile of trade notional from a strided sample (max 250k trades/day) \u2014 the criteria report specifies a rolling 30d window; day-level percentile is the computable approximation",
+    "futures UM tape only (spot tape not collected)",
+    "Tier-3 proxy: aggregated retail routed through one API key can mimic block trades"
+  ]
+}

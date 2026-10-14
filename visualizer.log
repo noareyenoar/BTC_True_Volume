@@ -1,0 +1,598 @@
+INFO:     Started server process [9876]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:52266 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52270 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1787011200000 HTTP/1.1" 200 OK
+INFO:     Started server process [13704]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:52169 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52194 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     Started server process [3088]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:52499 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     Started server process [12672]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:51360 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     Started server process [3668]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:52670 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52728 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52728 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52729 - "GET /vendor/lightweight-charts.standalone.production.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:52730 - "GET /app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52730 - "GET /manifest.json HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52730 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52730 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52730 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1289640600000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52729 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1289640600000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52728 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52728 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1786770000000&end=1787547600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52728 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=916356150000&end=1289640599999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52728 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1786770000000&end=1787547600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52731 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52731 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=1289671200000&end=1502927999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52732 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52732 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1786770000000&end=1787547600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52732 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=916471800000&end=1289671199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52732 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1773273600000&end=1791936000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52732 - "GET /api/ohlc?symbol=ETHUSDT&interval=1d&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52732 - "GET /api/volume_breakdown?symbol=ETHUSDT&interval=1d&limit=1 HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\uvicorn\protocols\http\h11_impl.py", line 416, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\fastapi\applications.py", line 1163, in __call__
+    await super().__call__(scope, receive, send)
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\starlette\applications.py", line 96, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\starlette\routing.py", line 670, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\fastapi\routing.py", line 2734, in app
+    await route.handle(scope, receive, send)
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\fastapi\routing.py", line 1281, in handle
+    await super().handle(scope, receive, send)
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\starlette\routing.py", line 280, in handle
+    await self.app(scope, receive, send)
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\fastapi\routing.py", line 158, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\fastapi\routing.py", line 144, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\fastapi\routing.py", line 727, in app
+    content = await serialize_response(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\fastapi\routing.py", line 330, in serialize_response
+    return serializer(
+           ^^^^^^^^^^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\fastapi\_compat\v2.py", line 231, in serialize_json
+    return self._type_adapter.dump_json(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\kp_ai_agent\Dataset_Fetcher\.venv\Lib\site-packages\pydantic\type_adapter.py", line 677, in dump_json
+    return self.serializer.to_json(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+pydantic_core._pydantic_core.PydanticSerializationError: Unable to serialize unknown type: <class 'numpy.int64'>
+INFO:     127.0.0.1:52733 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52733 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52733 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1773273600000&end=1791936000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52741 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     Started server process [5256]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:53042 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     Started server process [2060]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:62998 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     Started server process [10792]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:56211 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     Started server process [1920]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:59267 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     Started server process [6740]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:63156 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     Started server process [9156]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:65534 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49159 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49160 - "GET /api/volume_profile?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49161 - "GET /api/volume_profile?symbol=ETHUSDT&window=all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49162 - "GET /api/volume_profile?symbol=BTCUSDT&window=7d HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:49163 - "GET /index.html HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49164 - "GET /app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49165 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49175 - "GET /api/volume_profile?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49176 - "GET /api/volume_profile?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49177 - "GET /index.html HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49178 - "GET /app.js HTTP/1.1" 200 OK
+INFO:     Started server process [11440]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:62443 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62454 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62454 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62455 - "GET /vendor/lightweight-charts.standalone.production.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62456 - "GET /app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62456 - "GET /manifest.json HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:62456 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62456 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62456 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62456 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62454 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62454 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788967800000&end=1790040600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62454 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=911366550000&end=1287826199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62454 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788967800000&end=1790040600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62466 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62466 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62467 - "GET /vendor/lightweight-charts.standalone.production.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62468 - "GET /app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62467 - "GET /manifest.json HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:62468 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62466 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:62468 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62467 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62467 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62467 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62467 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62467 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62467 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=911366550000&end=1287826199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62467 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62467 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62467 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=1287856800000&end=1502927999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62468 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62468 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62468 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=911482200000&end=1287856799999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62468 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1762603200000&end=1798718400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62468 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=252826650000&end=911482199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62468 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-899820562500&end=252826649999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62468 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1767398400000&end=1797120000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62468 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1752235200000&end=1802174400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62468 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1760270400000&end=1799496000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62484 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1759752000000&end=1799668800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62484 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62484 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1760011200000&end=1799582400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/cost_basis?symbol=BTCUSDT&window=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/cost_basis?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/cost_basis?symbol=BTCUSDT&window=365d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/cost_basis?symbol=BTCUSDT&window=180d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62501 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62501 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788535800000&end=1790184600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62501 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=911366550000&end=1287826199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62501 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788535800000&end=1790184600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62501 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62501 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=1287856800000&end=1502927999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1788535800000&end=1790184600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=911482200000&end=1287856799999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1760011200000&end=1799582400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=252826650000&end=911482199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=252826650000&end=911482199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-899820562500&end=252826649999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1750680000000&end=1802692800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/volume_profile?symbol=BTCUSDT&window=all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/volume_profile?symbol=BTCUSDT&window=1y HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62492 - "GET /api/volume_profile?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62525 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1756641600000&end=1800705600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62532 - "GET /api/volume_profile?symbol=BTCUSDT&window=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62532 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1742515200000&end=1805414400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62532 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1712577600000&end=1815393600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62532 - "GET /manifest.json HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:62540 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62540 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62532 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62540 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62540 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62532 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62532 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62532 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=911366550000&end=1287826199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62532 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62710 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62710 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=1287856800000&end=1502927999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62711 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62711 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62711 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=911482200000&end=1287856799999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62711 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1762603200000&end=1798718400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62729 - "GET /api/cost_basis?symbol=BTCUSDT&window=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62729 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=252826650000&end=911482199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62729 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=252826650000&end=911482199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62729 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-899820562500&end=252826649999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62729 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-899820562500&end=252826649999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62729 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-899820562500&end=252826649999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62729 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1754827200000&end=1801310400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62729 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1734609600000&end=1808049600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62729 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1691582400000&end=1822392000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62729 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1611230400000&end=1849176000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62729 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1580256000000&end=1859500800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63277 - "GET /api/cost_basis?symbol=BTCUSDT&window=365d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63277 - "GET /api/cost_basis?symbol=BTCUSDT&window=180d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63277 - "GET /api/cost_basis?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63277 - "GET /api/cost_basis?symbol=BTCUSDT&window=14d HTTP/1.1" 200 OK
+INFO:     Started server process [9016]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:64908 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64928 - "GET /api/cost_basis?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64929 - "GET /api/cost_basis?symbol=BTCUSDT&window=14d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64930 - "GET /api/cost_basis?symbol=ETHUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64931 - "GET /api/profile?symbol=BTCUSDT&interval=1d HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:64932 - "GET /api/holder?symbol=BTCUSDT HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:64933 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64940 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64952 - "GET /api/cost_basis?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64953 - "GET /api/cost_basis?symbol=BTCUSDT&window=14d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64954 - "GET /api/cost_basis?symbol=BTCUSDT&window=365d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64955 - "GET /api/cost_basis?symbol=ETHUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64956 - "GET /api/volume_profile?symbol=BTCUSDT&interval=1d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64958 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64959 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64962 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65488 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65488 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65489 - "GET /vendor/lightweight-charts.standalone.production.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65490 - "GET /app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65489 - "GET /manifest.json HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:65489 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65489 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65490 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65490 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65490 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65489 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65489 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65489 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=911366550000&end=1287826199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65489 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65489 - "GET /api/cost_basis?symbol=BTCUSDT&window=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65489 - "GET /api/cost_basis?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65489 - "GET /api/cost_basis?symbol=BTCUSDT&window=180d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65489 - "GET /api/cost_basis?symbol=BTCUSDT&window=365d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65506 - "GET /manifest.json HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:65507 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65507 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65506 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65507 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65507 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65506 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65506 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65506 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=911366550000&end=1287826199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65506 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65506 - "GET /api/volume_profile?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65519 - "GET /api/volume_profile?symbol=BTCUSDT&window=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65519 - "GET /api/volume_profile?symbol=BTCUSDT&window=1y HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65531 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=252562162500&end=911366549999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65531 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=252562162500&end=911366549999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65531 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=-900345515625&end=252562162499&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65531 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=-900345515625&end=252562162499&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65531 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788141600000&end=1790316000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65531 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788714000000&end=1790125200000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65531 - "GET /api/cost_basis?symbol=BTCUSDT&window=365d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65531 - "GET /api/cost_basis?symbol=BTCUSDT&window=180d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65531 - "GET /api/cost_basis?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65531 - "GET /api/cost_basis?symbol=BTCUSDT&window=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65531 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788967800000&end=1790040600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65531 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65531 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=1287856800000&end=1502927999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65531 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=1287856800000&end=1502927999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49158 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49158 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1788973200000&end=1790038800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49158 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=911482200000&end=1287856799999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49158 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1770508800000&end=1796083200000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49158 - "GET /api/volume_profile?symbol=BTCUSDT&window=all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49171 - "GET /app.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:49171 - "GET /manifest.json HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49172 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49172 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49171 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49171 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49171 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49172 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49172 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49172 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=911366550000&end=1287826199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49172 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49172 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49172 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=1287856800000&end=1502927999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49171 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49171 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49171 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=911482200000&end=1287856799999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49171 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1762603200000&end=1798718400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49171 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=252826650000&end=911482199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49171 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-899820562500&end=252826649999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49171 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1768564800000&end=1796731200000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49171 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1770897600000&end=1795953600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49171 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1767009600000&end=1797249600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49171 - "GET /api/cost_basis?symbol=BTCUSDT&window=14d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49185 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1780747200000&end=1792670400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49185 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1762862400000&end=1798632000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49200 - "GET /api/volume_profile?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49270 - "GET / HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:49270 - "GET /style.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:49270 - "GET /app.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:49270 - "GET /manifest.json HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49271 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49271 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49270 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49270 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49270 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49271 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49271 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49271 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=911366550000&end=1287826199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49271 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49271 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49271 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=1287856800000&end=1502927999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49270 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49270 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49270 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=911482200000&end=1287856799999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49270 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1762603200000&end=1798718400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49270 - "GET /api/cost_basis?symbol=BTCUSDT&window=365d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49290 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=252826650000&end=911482199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49290 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=252826650000&end=911482199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49290 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-899820562500&end=252826649999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49290 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-899820562500&end=252826649999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49290 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1773792000000&end=1794873600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49290 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1779451200000&end=1793102400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49290 - "GET /api/cost_basis?symbol=BTCUSDT&window=180d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49290 - "GET /api/cost_basis?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49290 - "GET /api/cost_basis?symbol=BTCUSDT&window=14d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49290 - "GET /api/cost_basis?symbol=BTCUSDT&window=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49351 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49491 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1768176000000&end=1796860800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49491 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1747958400000&end=1803600000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49491 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1765972800000&end=1797595200000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49525 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1743292800000&end=1805155200000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49525 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1696636800000&end=1820707200000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49525 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1751587200000&end=1802390400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49550 - "GET /api/volume_profile?symbol=BTCUSDT&window=1y HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49550 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1707912000000&end=1816948800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49550 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49577 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49577 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49578 - "GET /app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49578 - "GET /manifest.json HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49577 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49577 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49578 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49577 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49577 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49578 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49578 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49578 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=911366550000&end=1287826199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49578 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49578 - "GET /api/volume_profile?symbol=BTCUSDT&window=all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49578 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49578 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=1287856800000&end=1502927999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49587 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49587 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49587 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=911482200000&end=1287856799999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49587 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1762603200000&end=1798718400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49587 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=252826650000&end=911482199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49587 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=252826650000&end=911482199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49587 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-899820562500&end=252826649999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49587 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-899820562500&end=252826649999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49587 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-899820562500&end=252826649999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49587 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1757419200000&end=1800446400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49587 - "GET /api/cost_basis?symbol=BTCUSDT&window=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49587 - "GET /api/cost_basis?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49587 - "GET /api/volume_profile?symbol=BTCUSDT&window=1y HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49603 - "GET /api/volume_profile?symbol=BTCUSDT&window=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49603 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1761220800000&end=1799064000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49603 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1754438400000&end=1801440000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49603 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1760832000000&end=1796428800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49603 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1765454400000&end=1797768000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49603 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1765065600000&end=1797897600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49603 - "GET /api/volume_profile?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49615 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1768176000000&end=1796860800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49615 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1764936000000&end=1797940800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49615 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1768953600000&end=1796601600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49909 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1695988800000&end=1820923200000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49909 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1590753600000&end=1856001600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49909 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1492387200000&end=1888790400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49909 - "GET /api/cost_basis?symbol=BTCUSDT&window=180d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49909 - "GET /api/cost_basis?symbol=BTCUSDT&window=365d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49926 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1580515200000&end=1857340800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49926 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1637712000000&end=1826755200000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49926 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1664107200000&end=1831550400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50253 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1706356800000&end=1812974400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50253 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1722556800000&end=1812067200000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50253 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1719576000000&end=1813060800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50253 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1720094400000&end=1812888000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50270 - "GET /api/cost_basis?symbol=BTCUSDT&window=14d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50270 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1721649600000&end=1812369600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50270 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1721908800000&end=1812283200000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51088 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1688083200000&end=1823558400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51811 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1721390400000&end=1812456000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET / HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51937 - "GET /style.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51938 - "GET /app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51938 - "GET /manifest.json HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51937 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51938 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51938 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51938 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287826200000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=911366550000&end=1287826199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/volume_profile?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/cost_basis?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788643800000&end=1790148600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=252562162500&end=911366549999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=252562162500&end=911366549999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=-900345515625&end=252562162499&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=-900345515625&end=252562162499&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1789027200000&end=1789992000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1789162200000&end=1789975800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788924600000&end=1790055000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788773400000&end=1790105400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51937 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=1287856800000&end=1502927999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51949 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51949 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1788773400000&end=1790105400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51949 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=911482200000&end=1287856799999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51949 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=252826650000&end=911482199999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51949 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-899820562500&end=252826649999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51949 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1758067200000&end=1800230400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51949 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1762128000000&end=1798070400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51949 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1766361600000&end=1797465600000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51949 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1756123200000&end=1800878400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51966 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1739016000000&end=1806580800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51966 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1756123200000&end=1800878400000&limit=30000 HTTP/1.1" 200 OK
+INFO:     Started server process [2768]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:52695 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52704 - "GET /api/cost_basis?symbol=BTCUSDT&window=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52706 - "GET /api/cost_basis?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52707 - "GET /api/cost_basis?symbol=BTCUSDT&window=180d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52708 - "GET /api/cost_basis?symbol=BTCUSDT&window=365d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52709 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52710 - "GET /api/volume_profile?symbol=BTCUSDT&interval=1d&window_days=90 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52711 - "GET /api/holder?symbol=BTCUSDT HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52712 - "GET /api/cost_basis?symbol=ETHUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52725 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52953 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52953 - "GET /style.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:52954 - "GET /app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52954 - "GET /manifest.json HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52954 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52953 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52953 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52953 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287761400000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52953 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287761400000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52954 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52954 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788730200000&end=1790235000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52954 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=911188350000&end=1287761399999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52954 - "GET /api/volume_profile?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52954 - "GET /api/cost_basis?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52954 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52954 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788730200000&end=1790235000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52971 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52971 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=1287792000000&end=1502927999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52972 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52972 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1788730200000&end=1790235000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52972 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=911304000000&end=1287791999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52972 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1762689600000&end=1798804800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52985 - "GET /api/cost_basis?symbol=BTCUSDT&window=365d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52985 - "GET /api/cost_basis?symbol=BTCUSDT&window=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52985 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=252450000000&end=911303999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52985 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=252450000000&end=911303999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52985 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-900544500000&end=252449999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52985 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-900544500000&end=252449999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52985 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-900544500000&end=252449999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52985 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1756857600000&end=1800748800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52985 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1753488000000&end=1801872000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52985 - "GET /api/cost_basis?symbol=BTCUSDT&window=180d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52985 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1773316800000&end=1792843200000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55249 - "GET / HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:55249 - "GET /style.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:55249 - "GET /app.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:55249 - "GET /manifest.json HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55250 - "GET /api/symbols HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55249 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55249 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287761400000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=1287761400000&end=1502945999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788730200000&end=1790235000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=911188350000&end=1287761399999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/volume_profile?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/cost_basis?symbol=BTCUSDT&window=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/onchain_snapshot?symbol=BTCUSDT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788730200000&end=1790235000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=252185512500&end=911188349999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/ohlc?symbol=BTCUSDT&interval=1h&start=-901069453125&end=252185512499&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1789005600000&end=1790143200000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1h&start=1788433200000&end=1790334000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&limit=300000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55250 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=1287792000000&end=1502927999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55266 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55266 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1788433200000&end=1790334000000&limit=30000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55266 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=911304000000&end=1287791999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55266 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=911304000000&end=1287791999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55266 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=911304000000&end=1287791999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55266 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=911304000000&end=1287791999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55266 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=911304000000&end=1287791999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55266 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=252450000000&end=911303999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55266 - "GET /api/ohlc?symbol=BTCUSDT&interval=1d&start=-900544500000&end=252449999999&limit=250000 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55266 - "GET /api/volume_breakdown?symbol=BTCUSDT&interval=1d&start=1743897600000&end=1805068800000&limit=30000 HTTP/1.1" 200 OK
+INFO:     Started server process [4748]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:55352 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55355 - "GET /api/cost_basis?symbol=BTCUSDT&window=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55356 - "GET /api/cost_basis?symbol=BTCUSDT&window=90d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55357 - "GET /api/cost_basis?symbol=BTCUSDT&window=180d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55358 - "GET /api/cost_basis?symbol=BTCUSDT&window=365d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55359 - "GET /api/cost_basis?symbol=BTCUSDT&window=4y HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55360 - "GET /api/cost_basis?symbol=ETHUSDT&window=4y HTTP/1.1" 200 OK
+INFO:     Started server process [1900]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:56873 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56875 - "GET /app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56876 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56915 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56915 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56916 - "GET /vendor/lightweight-charts.standalone.production.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56917 - "GET /app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56917 - "GET /manifest.json HTTP/1.1" 404 Not Found
+INFO:     Started server process [18204]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:50855 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50859 - "GET /api/cost_basis?symbol=BTCUSDT&window=custom&from=2026-08-21&to=2026-10-09 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51104 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51105 - "GET /static/style.css HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51106 - "GET /static/app.js HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51107 - "GET /api/cost_basis?symbol=BTCUSDT&window=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51115 - "GET /app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51116 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51117 - "GET /static/app.js HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51118 - "GET /static/style.css HTTP/1.1" 404 Not Found

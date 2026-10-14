@@ -1,0 +1,97 @@
+{
+  "created_at": "2026-08-20T16:41:25+00:00",
+  "updated_at": "2026-08-20T16:48:01+00:00",
+  "phases": {
+    "step0": {
+      "status": "completed",
+      "attempts": 1,
+      "last_error": null,
+      "started_at": "2026-08-20T16:41:25+00:00",
+      "finished_at": "2026-08-20T16:43:52+00:00"
+    },
+    "phase1_btc": {
+      "status": "completed",
+      "attempts": 1,
+      "last_error": null,
+      "started_at": "2026-08-20T16:43:57+00:00",
+      "finished_at": "2026-08-20T16:43:58+00:00"
+    },
+    "phase1_eth": {
+      "status": "completed",
+      "attempts": 1,
+      "last_error": null,
+      "started_at": "2026-08-20T16:44:03+00:00",
+      "finished_at": "2026-08-20T16:44:03+00:00"
+    },
+    "phase2": {
+      "status": "completed",
+      "attempts": 1,
+      "last_error": null,
+      "started_at": "2026-08-20T16:44:08+00:00",
+      "finished_at": "2026-08-20T16:47:11+00:00"
+    },
+    "phase3": {
+      "status": "completed",
+      "attempts": 1,
+      "last_error": null,
+      "started_at": "2026-08-20T16:47:16+00:00",
+      "finished_at": "2026-08-20T16:47:16+00:00"
+    },
+    "phase4": {
+      "status": "completed",
+      "attempts": 1,
+      "last_error": null,
+      "started_at": "2026-08-20T16:47:21+00:00",
+      "finished_at": "2026-08-20T16:47:24+00:00"
+    },
+    "phase5": {
+      "status": "completed",
+      "attempts": 1,
+      "last_error": null,
+      "started_at": "2026-08-20T16:47:29+00:00",
+      "finished_at": "2026-08-20T16:47:29+00:00"
+    },
+    "phase6": {
+      "status": "completed",
+      "attempts": 1,
+      "last_error": null,
+      "started_at": "2026-08-20T16:47:34+00:00",
+      "finished_at": "2026-08-20T16:47:34+00:00"
+    },
+    "phase7": {
+      "status": "completed",
+      "attempts": 1,
+      "last_error": null,
+      "started_at": "2026-08-20T16:47:39+00:00",
+      "finished_at": "2026-08-20T16:47:39+00:00"
+    },
+    "phase8": {
+      "status": "completed",
+      "attempts": 1,
+      "last_error": null,
+      "started_at": "2026-08-20T16:47:44+00:00",
+      "finished_at": "2026-08-20T16:47:44+00:00"
+    },
+    "final": {
+      "status": "completed",
+      "attempts": 1,
+      "last_error": null,
+      "started_at": "2026-08-20T16:47:49+00:00",
+      "finished_at": "2026-08-20T16:47:50+00:00"
+    },
+    "register": {
+      "status": "completed",
+      "attempts": 1,
+      "last_error": null,
+      "started_at": "2026-08-20T16:47:55+00:00",
+      "finished_at": "2026-08-20T16:47:55+00:00"
+    },
+    "verify": {
+      "status": "completed",
+      "attempts": 1,
+      "last_error": null,
+      "started_at": "2026-08-20T16:48:01+00:00",
+      "finished_at": "2026-08-20T16:48:01+00:00"
+    }
+  }
+}

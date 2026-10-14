@@ -1,0 +1,18 @@
+{
+  "dataset_id": "futures_positioning_BTCUSDT_1d",
+  "description": "BTCUSDT daily futures positioning \u2014 OI + top-trader L/S skew (Binance Vision metrics)",
+  "data_source": "binance_vision_metrics",
+  "confidence_tier": "Medium",
+  "coverage": [
+    "2020-11-23",
+    "2026-10-12"
+  ],
+  "earliest_published": "2020-11-23",
+  "source_merged": "D:\\kp_ai_agent\\Dataset_Fetcher\\binance_full_dataset\\processed\\futures_um\\metrics\\BTCUSDT\\merged.parquet",
+  "known_limitations": [
+    "top-trader ratio is the top-20%-accounts cohort \u2014 a sentiment proxy, NOT exchange-wide long/short OI (which nets to zero by construction)",
+    "metrics backfill starts at the earliest published day (2021-01-01-ish); no earlier history exists on Binance Vision"
+  ],
+  "generated_utc": "2026-10-14T04:37:48.436422+00:00",
+  "row_count": 2150
+}
