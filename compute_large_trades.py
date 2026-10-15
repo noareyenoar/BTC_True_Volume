@@ -12,11 +12,11 @@ documented approximation — the tooltip/usage guide say so; the threshold is
 never silently treated as exact.
 
 Sources (on disk + incremental extension/ dirs from refresh_before_visualizer):
-    BTCUSDT: binance_full_dataset/processed/futures_um/aggtrades/BTCUSDT/merged.parquet
+    BTCUSDT: binance_full_dataset/processed/futures_um/aggTrades/BTCUSDT/merged.parquet
              (single time-ordered file; day derived from transact_time_utc)
            + .../BTCUSDT/extension/YYYY-MM/*.parquet (post-merge refresh days,
              same compact naming as the ETHUSDT extension)
-    ETHUSDT: binance_full_dataset/processed/futures_um/aggtrades/ETHUSDT/daily/YYYY-MM/*.parquet
+    ETHUSDT: binance_full_dataset/processed/futures_um/aggTrades/ETHUSDT/daily/YYYY-MM/*.parquet
            + .../ETHUSDT/extension/YYYY-MM/*.parquet  (its merged.parquet is
              the partial pre-extension merge — ignored to avoid double counts)
 
@@ -50,7 +50,9 @@ logger = logging.getLogger("tvp.large_trades")
 
 BASE = Path(__file__).resolve().parent                       # BTC_True_Volume
 DATA_ROOT = BASE / "processed"                               # actual data root
-TAPE = BASE.parent / "binance_full_dataset" / "processed" / "futures_um" / "aggtrades"
+# exact case matters off Windows: a lowercase "aggtrades" is a different
+# (missing) directory on Linux, so the tape would silently read as absent
+TAPE = BASE.parent / "binance_full_dataset" / "processed" / "futures_um" / "aggTrades"
 OUT_DIR = DATA_ROOT / "large_trades"
 CKPT_DIR = BASE / "raw" / "large_trades_checkpoint"
 

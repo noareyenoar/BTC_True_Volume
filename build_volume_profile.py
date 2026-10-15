@@ -8,9 +8,9 @@ it carries the taker split — so a level where sellers were absorbed can be tol
 apart from one where buyers were trapped.
 
 Sources: reuse compute_large_trades._sources() — the proven-correct selection:
-    BTCUSDT: .../aggtrades/BTCUSDT/merged.parquet (day from transact_time_utc)
+    BTCUSDT: .../aggTrades/BTCUSDT/merged.parquet (day from transact_time_utc)
            + .../BTCUSDT/extension/YYYY-MM/*.parquet
-    ETHUSDT: .../aggtrades/ETHUSDT/daily/YYYY-MM/*.parquet
+    ETHUSDT: .../aggTrades/ETHUSDT/daily/YYYY-MM/*.parquet
            + .../ETHUSDT/extension/YYYY-MM/*.parquet   (merged.parquet is the
              partial pre-extension merge — ignored to avoid double counting)
 NOTE: ETH's daily/ (…→2026-08-14) and extension/ (2026-06-17→…) overlap by ~59
