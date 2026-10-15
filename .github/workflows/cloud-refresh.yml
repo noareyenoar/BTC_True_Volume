@@ -15,12 +15,13 @@ name: cloud-refresh
 #   Dataset_Fetcher/BTC_True_Volume/site/         - checkout of branch `main` (SITE)
 #   Dataset_Fetcher/BTC_True_Volume/{processed,raw}
 #   Dataset_Fetcher/{binance_full_dataset,onchain_dataset,dataset_1d}
-#       - the ~2.4 GB pipeline state: travels via the Actions cache `state-*`
+#       - the ~3.3 GB pipeline state: travels via the Actions cache `state-*`
 #         (newest wins), with a weekly copy in the `state-backup` release as
 #         fallback. Never committed - several files exceed GitHub's 100 MB
-#         limit. Only what the daily chain reads is seeded (klines 1m/1h/1d,
-#         aggTrades/*/extension; NOT the multi-GB tape merged.parquet or
-#         ETH daily/, which the checkpoints skip on purpose).
+#         limit. Only what the daily chain reads is seeded (the BTC/ETH
+#         klines dirs of both futures_um and spot, aggTrades/*/extension;
+#         NOT the multi-GB tape merged.parquet or ETH daily/, which the
+#         checkpoints skip on purpose).
 #
 # If both cache and release are empty (pre-seed), the refresh job stops with a
 # warning instead of running a partial pipeline.
