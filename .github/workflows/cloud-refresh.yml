@@ -23,8 +23,10 @@ name: cloud-refresh
 #         NOT the multi-GB tape merged.parquet or ETH daily/, which the
 #         checkpoints skip on purpose).
 #
-# If both cache and release are empty (pre-seed), the refresh job stops with a
-# warning instead of running a partial pipeline.
+# If both cache and release are empty, the refresh job stops with a warning
+# instead of running a partial pipeline. (One-time seed uploaded 2026-10-15;
+# from the first successful run on, the Actions cache carries the state
+# forward and the release is refreshed every Sunday as a fallback.)
 
 on:
   schedule:
