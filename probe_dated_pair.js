@@ -145,6 +145,21 @@ const g = ctx;
 const CENT = 0.005;
 // ISO -> the dd/mm/yyyy the page prints (mirrors fmtDay, the reading the eyes get)
 const dm = iso => iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4);
+/* The red flag's text, mirrored from app.js's updateCostBasisStatus — ONE
+ * place, because this ran as two copies and the copies are a trap: the wording
+ * changed in app.js on 2026-10-16 (a weekly-archive tail now names its store)
+ * and the stale copies here turned a wording edit into a FAILED cloud run whose
+ * push step was skipped. A tail the WEEKLY archive could not carry is that
+ * store's own grid, so the flag says so and quotes its newest anchor; a tail
+ * from the dated store is a curve not stored yet and carries no such note. */
+function wantFlag(payload) {
+  const m = payload && payload.missing;
+  if (!m) return "";
+  const newest = payload.as_of ? dm(payload.as_of) : "—";   // fmtDay's own dash
+  return "missing " + dm(m.from) + (m.from === m.to ? "" : " – " + dm(m.to))
+    + (payload.estimate_kind === "archive-pair"
+        ? " · weekly store (newest " + newest + ")" : "");
+}
 // the payload's own positive/negative totals: the denominators cum_acc/cum_dist
 // are shares of, needed to bound their rounding (see tolFor)
 const sumPos = rows => rows.reduce((s, r) => s + Math.max(r.d, 0), 0);
@@ -248,9 +263,7 @@ function perRowBound(ar, got) {
           const r = hook.readCbStrip(body);
           const strip = r.strip.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
           console.log(`        strip: ${strip}`);
-          const m = sc.archive_payload && sc.archive_payload.missing;
-          const want = m ? ("missing " + dm(m.from)
-            + (m.from === m.to ? "" : " – " + dm(m.to))) : "";
+          const want = wantFlag(sc.archive_payload);
           if (r.missing !== want) {
             bad++;
             console.log(`[FAIL] ${label}: flag text client="${r.missing}" expected="${want}"`);
@@ -300,9 +313,7 @@ function perRowBound(ar, got) {
         const r = hook.readCbStrip(got);
         const strip = r.strip.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
         console.log(`        strip: ${strip}`);
-        const m = sc.payload.missing;
-        const want = m ? ("missing " + dm(m.from)
-          + (m.from === m.to ? "" : " – " + dm(m.to))) : "";
+        const want = wantFlag(sc.payload);
         if (r.missing !== want) {
           bad++;
           console.log(`[FAIL] ${label}: flag text client="${r.missing}" expected="${want}"`);
