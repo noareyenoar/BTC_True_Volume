@@ -193,14 +193,30 @@ jobs:
         working-directory: Dataset_Fetcher/BTC_True_Volume
         run: python publish_site.py --no-push
 
-      - name: verify (verify_all + node probes)
+      # ONE COMMAND PER STEP, named, on purpose: a red verify step whose log
+      # sits behind authentication cannot say which of the four failed, and the
+      # step's name is the only part of a failed run you can read unauthenticated
+      # (2026-10-16: it was the dated-pair probe, whose flag-text expectation had
+      # gone stale behind a wording change in app.js).
+      - name: verify (verify_all)
         if: hashFiles('_state_ready') != ''
         working-directory: Dataset_Fetcher/BTC_True_Volume
-        run: |
-          python verify_all.py
-          node probe_dates.js
-          python probe_dated_server.py
-          node probe_dated_pair.js
+        run: python verify_all.py
+
+      - name: verify (probe_dates — the typed date boxes)
+        if: hashFiles('_state_ready') != ''
+        working-directory: Dataset_Fetcher/BTC_True_Volume
+        run: node probe_dates.js
+
+      - name: verify (probe_dated_server — dump the API's own bodies)
+        if: hashFiles('_state_ready') != ''
+        working-directory: Dataset_Fetcher/BTC_True_Volume
+        run: python probe_dated_server.py
+
+      - name: verify (probe_dated_pair — browser vs API field for field)
+        if: hashFiles('_state_ready') != ''
+        working-directory: Dataset_Fetcher/BTC_True_Volume
+        run: node probe_dated_pair.js
 
       - name: push site to main
         if: hashFiles('_state_ready') != '' && !inputs.dry_run
