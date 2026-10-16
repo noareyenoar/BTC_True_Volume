@@ -654,9 +654,10 @@ COST_BASIS_WINDOWS = {"30d": 30, "90d": 90, "180d": 180, "365d": 365}
 CB_DATED_WINDOWS = {"4y": 1460}
 COST_BASIS_ALL = {**COST_BASIS_WINDOWS, **CB_DATED_WINDOWS}
 CB_CURVES = CHECKONCHAIN / "urpd_curves.parquet"
-# The weekly per-date archive (fetch_checkonchain_urpd.py --backfill-series).
-# This is what makes a window of the reader's own choosing possible: 560 dated
-# curves on ONE uniform $200 grid, 2016-01-03 to today, so any two of them can
+# The per-date archive (fetch_checkonchain_urpd.py --backfill-series).  This is
+# what makes a window of the reader's own choosing possible: ~1,200 dated curves
+# on ONE uniform $200 grid, 2016-01-03 to today -- one date a week back to the
+# start, and every single day from SERIES_DAILY_START on -- so any two of them can
 # be subtracted.  Its own grid, deliberately: both ends of such a pair come from
 # this store, so the $200-does-not-nest-in-$500 problem that forces CB_ZONE_USD
 # on the mixed-store paths cannot arise, and $200 is fine enough to be worth
@@ -674,15 +675,18 @@ CB_DATED_ZONE_USD = 500.0
 # came from should be sent to the host that actually served it.
 CB_ARCHIVE_SOURCE = "checkonchain_bitview_series_api"
 # A requested date may sit this far outside the archive and still snap to its
-# nearest anchor (the anchors are a week apart, so half a cadence plus a day).
-# Further out is not a date we happen to lack -- it is a different question, and
-# it is refused rather than answered with somebody else's window.
+# nearest stored date (in the weekly region the anchors are a week apart, so half
+# a cadence plus a day; inside the daily region every date is stored and the snap
+# is exact).  Further out is not a date we happen to lack -- it is a different
+# question, and it is refused rather than answered with somebody else's window.
 CB_SNAP_TOLERANCE_DAYS = 4
 # A requested END date may sit past the newest stored curve by up to this many
 # days and still be answered from that curve.  The fresh end is "not published
 # yet", not "a different question", and the reader's most natural gesture -- the
-# pencil dragged to the chart's right edge -- always lands there (the weekly
-# archive's gap to today is at most 6 days).  The days beyond the curve come
+# pencil dragged to the chart's right edge -- always lands there.  Inside the
+# daily region the gap to today is a day or two, but this still has to cover a
+# store that is behind for its own reasons (the host down, a machine that has not
+# finished its catch-up), so it stays at a week.  The days beyond the curve come
 # back as the payload's `missing` so the page names them instead of quietly
 # drawing a shorter window.  The START end gets no grace: nothing new ever
 # arrives at the old end of the axis.
@@ -765,7 +769,8 @@ def _cb_dated_curves():
     A different generation from `_cb_archive`, and a different grid: these are the
     charts-CDN snapshots the fixed windows and `4y` are built from, on the
     publisher's own $500 buckets and current to the publishing day, where the
-    weekly archive is a bitview series on $200 with one curve per Sunday.
+    archive here is the bitview series on $200: one curve a day for its recent
+    tail, one a week before that.
     """
     if not CB_CURVES.exists():
         return None
@@ -880,9 +885,34 @@ def _cb_dated_pair(target_days: int):
     return _cb_dated_frame(prev, as_of, CB_ZONE_USD)
 
 
+CB_ARCHIVE_META = CB_ARCHIVE.with_name("urpd_archive_meta.json")
+# What to say when the sidecar is missing or predates the field: the step this
+# archive was built on for years, and still the honest answer for a store that
+# has not been rebuilt since the daily region was introduced.
+CB_ARCHIVE_CADENCE_FALLBACK = 7
+
+
+@lru_cache(maxsize=1)
+def _cb_archive_meta() -> Dict[str, Any]:
+    """The archive store's own sidecar: how fine its grid is, and from where.
+
+    `cadence_days` is the FINEST step the store reaches (1 once the daily region
+    is in, 7 while it is still being fetched -- the collector's store_dates() is
+    all-or-nothing), and `daily_from` names where that daily region starts.  Read
+    from the sidecar rather than assumed, because the published page has to say
+    what the server says: the exporter ships these same two fields into the
+    artifact and the manifest, and probe_dated_pair.js diffs the two payloads
+    field for field.
+    """
+    try:
+        return json.loads(CB_ARCHIVE_META.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
 @lru_cache(maxsize=1)
 def _cb_archive():
-    """The weekly $200 archive as one frame, or None when it is not built.
+    """The $200 per-date archive as one frame, or None when it is not built.
 
     Filtered to `variant == "supply"` with a null cohort, as every other URPD
     reader here is: the store also carries cohort rows, and only the supply rows
@@ -920,12 +950,12 @@ def _archive_snap(days: List[str], target: str) -> Optional[str]:
 
 def _cb_archive_pair(req_from: str, req_to: str
                      ) -> Tuple[Optional[pd.DataFrame], Dict[str, Any]]:
-    """Subtract two dated curves from the weekly archive.
+    """Subtract two dated curves from the per-date archive.
 
     Returns ``(frame, info)``.  The frame carries exactly the columns `_cb_diffs`
     returns, so the endpoint cannot tell the sources apart; ``info`` records what
     was asked for and what was served -- including when the archive has no date
-    at the requested one and the nearest anchor was used instead.
+    at the requested one and the nearest stored date was used instead.
     """
     info: Dict[str, Any] = {"requested_from": req_from, "requested_to": req_to,
                             "from_snapped": False, "to_snapped": False,
@@ -937,21 +967,23 @@ def _cb_archive_pair(req_from: str, req_to: str
         return None, info
     days = _archive_dates(df)
     first, last = date.fromisoformat(days[0]), date.fromisoformat(days[-1])
+    meta = _cb_archive_meta()
     info["archive"] = {"first": days[0], "last": days[-1], "n_dates": len(days),
-                       "bucket_usd": CB_ARCHIVE_ZONE_USD, "cadence_days": 7}
+                       "bucket_usd": CB_ARCHIVE_ZONE_USD,
+                       "cadence_days": meta.get("cadence_days", CB_ARCHIVE_CADENCE_FALLBACK),
+                       "daily_from": meta.get("daily_from")}
     a, b = date.fromisoformat(req_from), date.fromisoformat(req_to)
     lo = (first - timedelta(days=CB_SNAP_TOLERANCE_DAYS)).isoformat()
     hi = (last + timedelta(days=CB_SNAP_TOLERANCE_DAYS)).isoformat()
     for label, d in (("from", a), ("to", b)):
         if not lo <= d.isoformat() <= hi:
-            # The fresh end may sit past the newest Sunday: within the grace it
-            # is answered from the newest stored curve (CB_FRESH_GRACE_DAYS) and
-            # the days that curve cannot reach are reported as missing.
+            # The fresh end may sit past the newest stored curve: within the
+            # grace it is answered from that curve (CB_FRESH_GRACE_DAYS) and the
+            # days the curve cannot reach are reported as missing.
             if not (label == "to" and d.isoformat() > days[-1]
                     and (d - last).days <= CB_FRESH_GRACE_DAYS):
                 info["reason"] = (f"{label} {d.isoformat()} is outside the archive, "
-                                  f"which holds one date a week from {days[0]} to "
-                                  f"{days[-1]}")
+                                  f"which covers {days[0]} to {days[-1]}")
                 return None, info
     prev = _archive_snap(days, a.isoformat())
     cur = _archive_snap(days, b.isoformat())
@@ -959,9 +991,9 @@ def _cb_archive_pair(req_from: str, req_to: str
     info["to_snapped"] = cur != b.isoformat()
     info["requested_span_days"] = (b - a).days
     if prev is None or cur is None or prev >= cur:
-        info["reason"] = (f"the archive holds one date a week and {req_from} → "
-                          f"{req_to} resolves to a single anchor ({prev}) — pick "
-                          f"a window at least a week wide")
+        info["reason"] = (f"the archive has no date between {req_from} and "
+                          f"{req_to} — both ends land on the same stored curve "
+                          f"({prev}); pick a wider window")
         return None, info
     if b.isoformat() > days[-1]:
         # Days past the newest stored curve: the nearest anchor is that curve,
@@ -1010,7 +1042,7 @@ def _cb_dated_custom(req_from: str, req_to: str
     the dated snapshots the fixed windows are built from, so a pair whose ends
     both foot on stored dates IS the preset (or the nearest one), not a lookalike
     on a different grid; and it reaches the newest *published* date, where the
-    weekly archive can only reach the newest Sunday.  A reader asking for "the
+    archive reaches the newest stored curve whatever weekday that is.  A reader asking for "the
     last month" was being served a window ending four or five days earlier than
     the panel beside it, and the two disagreed about which way the newest coins
     moved -- precisely the days that move them.
@@ -1040,8 +1072,9 @@ def _cb_dated_custom(req_from: str, req_to: str
     # "nearest stored date" can be months away, and answering a 2023 question
     # with a 2022 curve because the store happens to span both would be a silent
     # substitution of somebody else's window. Inside 4 days it is the same
-    # measurement off by the publication lag; outside it, the weekly archive --
-    # which is never more than 3.5 days from any date -- is the honest source.
+    # measurement off by the publication lag; outside it, the archive --
+    # never more than 3.5 days from any date in its weekly region, and exact in
+    # its daily one -- is the honest source.
     for label, want, got in (("from", a, prev), ("to", b, cur)):
         if got is None:
             info["reason"] = f"no dated curves at all for {label} {want.isoformat()}"
@@ -1057,7 +1090,7 @@ def _cb_dated_custom(req_from: str, req_to: str
                     <= CB_FRESH_GRACE_DAYS):
                 info["reason"] = (f"{label} {want.isoformat()} is {gap} days from the "
                                   f"nearest dated curve ({got}) — too far to stand in "
-                                  f"for it, so the weekly archive answers instead")
+                                  f"for it, so the archive answers instead")
                 return None, info
     info["from_snapped"] = prev != a.isoformat()
     info["to_snapped"] = cur != b.isoformat()
@@ -1227,11 +1260,12 @@ def _cb_payload(df: pd.DataFrame, symbol: str, window: str, empty: Dict,
                       + f" The newest dated curves are still being restated "
                         f"upstream, so a window ending at {as_of} is provisional. ")
     elif kind == "archive-pair":
-        provenance = (f"COMPUTED LOCALLY from two dated curves in the weekly "
-                      f"archive ({prev} minus {as_of}), on the archive's own "
+        provenance = (f"COMPUTED LOCALLY from two dated curves in the archive "
+                      f"({prev} minus {as_of}), on the archive's own "
                       f"${CB_ARCHIVE_ZONE_USD:,.0f} grid: the publisher never "
-                      f"built this window. The archive holds one date per week, "
-                      f"so each end snapped to its nearest stored date"
+                      f"built this window. Each end snaps to the nearest stored "
+                      f"date — one curve a day for the recent tail, one a week "
+                      f"before that"
                       + (f" — asked {info['requested_from']} → "
                          f"{info['requested_to']}." if info else ".")
                       + (f" The {prev} curve covers only to "
@@ -1257,7 +1291,7 @@ def _cb_payload(df: pd.DataFrame, symbol: str, window: str, empty: Dict,
             "missing": info.get("missing"),
             # which store answered: the fixed windows are the publisher's own
             # prebuilt diffs, a dated pair is its dated curves subtracted here,
-            # and the weekly archive is the bitview series -- a reader must be
+            # and the archive is the bitview series -- a reader must be
             # able to tell that apart from the panel beside it
             "estimate_kind": kind,
             "window_label": f"{prev} → {as_of}",
@@ -1330,7 +1364,7 @@ def cost_basis(symbol: str, window: str = "90d",
     when both ends foot on them (each within CB_SNAP_TOLERANCE_DAYS days of a
     stored date) -- those are the curves the fixed windows are built from, so
     such a pair agrees with the preset beside it and reaches the newest published
-    date -- and from the weekly $200 archive otherwise, which is the only store
+    date -- and from the $200 archive otherwise, which is the only store
     that can reach further back than the dated ones.  The payload names which one
     answered (`estimate_kind`), and `from`/`to` are ISO dates, not the epoch-ms
     bounds that /api/ohlc and /api/volume_profile call start/end.
@@ -1369,7 +1403,7 @@ def cost_basis(symbol: str, window: str = "90d",
             # Preferred when it can answer: these are the curves the presets are
             # built from, so a pair footed on stored dates reads the same as the
             # fixed window next to it -- and it ends at the newest PUBLISHED
-            # date, where the weekly archive can only end at the newest Sunday.
+            # date, where the archive can end on any stored day.
             return _cb_payload(dated_df, symbol, window, empty,
                                "dated-pair-custom", dated_info)
         df, info = _cb_archive_pair(a.isoformat(), b.isoformat())

@@ -16,7 +16,7 @@ Layout produced under BTC_True_Volume/site/:
     cost_basis/{SYM}_{window}.json.gz  /api/cost_basis payloads (30d…365d, 4y)
     cost_basis/BTC_dated.json.gz       the publisher's own dated curves, the
                                        preferred source for window=custom
-    cost_basis/BTC_archive.json.gz     weekly dated curves: window=custom's
+    cost_basis/BTC_archive.json.gz     per-date curves: window=custom's
                                        fallback — both subtracted in the browser
                                        (BTC only)
     index.html, app.js, style.css, vendor/…   copied verbatim from static/
@@ -107,13 +107,19 @@ def _dump(payload, path: Path, gz: bool) -> None:
 # --------------------------------------------------------------------------- #
 
 def _export_cb_archive() -> dict:
-    """Ship the weekly dated curves with the site, as one flat centi-BTC array.
+    """Ship the per-date archive with the site, as one flat centi-BTC array.
 
     `window=custom` is the one cost-basis window the publisher never built and
     the server computes on demand from `urpd_archive.parquet`; the published site
     has no server, so it ships the whole archive and subtracts two dates in the
     browser.  That also means the page never touches bitview.space at view time --
     the sister's phone reads bytes that are already here.
+
+    The store is two grids in one: one date a week back to 2016, and every single
+    day from SERIES_DAILY_START on (see the collector's store_dates -- the daily
+    region is all-or-nothing, so this file is never holed).  `cadence_days` and
+    `daily_from` are read from the store's own sidecar rather than assumed, and
+    the same two fields reach the manifest and the API's own payload.
 
     Encoding: values are integers in HUNDREDTHS of a BTC (the largest single
     bucket is ~3M BTC, so cents fit with room to spare) because a JSON array of
@@ -126,12 +132,39 @@ def _export_cb_archive() -> dict:
         logger.warning("no dated-curve archive in the store — the published site "
                        "will answer window=custom with 're-publish the site'")
         return {}
+    meta = app._cb_archive_meta()
+    cadence = meta.get("cadence_days", app.CB_ARCHIVE_CADENCE_FALLBACK)
+    daily_from = meta.get("daily_from")
+    # Refuse to ship an archive COARSER than the one already published.  The
+    # daily region is all-or-nothing in the collector, so a machine that has not
+    # finished fetching it holds the weekly grid -- and publishing that over the
+    # shared page would flap the site between two grids as the PC and the cloud
+    # take turns.  Failing keeps the finer copy up and lets the next run retry;
+    # the cloud's push is skipped because this is the export step it runs before.
+    prev_cad = None
+    try:
+        prev_cad = (json.loads((SITE / "manifest.json").read_text(encoding="utf-8"))
+                    .get("cost_basis_archive", {}).get("BTCUSDT", {})
+                    .get("cadence_days"))
+    except (OSError, ValueError):
+        pass                      # no published manifest yet -- nothing to protect
+    if isinstance(prev_cad, (int, float)) and cadence and prev_cad < cadence:
+        logger.error("REFUSING to ship the archive at a %s-day cadence: the published "
+                     "site already carries %s-day curves, so this build would make the "
+                     "page COARSER than it is. The daily region is not fully fetched "
+                     "yet — run `python fetch_checkonchain_urpd.py --series-mode "
+                     "backfill` (resumable) and publish again.", cadence, prev_cad)
+        raise SystemExit(1)
     dates = sorted(df["_d"].unique().tolist())
     counts: list = []
     supply: list = []
     price: list = []
+    # One groupby, not a boolean mask per date: the old per-date scan was
+    # O(dates x rows), and the daily region takes both factors up several fold
+    # (measured 3.4 s at 563 dates / 145k rows, ~7x that once daily is in).
+    by_day = {d: g for d, g in df.groupby("_d")}
     for day in dates:
-        rows = df[df["_d"] == day].sort_values("price_bucket_usd")
+        rows = by_day[day].sort_values("price_bucket_usd")
         vals = rows["value"].to_numpy(dtype="float64")
         counts.append(int(vals.size))
         supply.extend(int(round(float(v) * 100)) for v in vals)
@@ -140,12 +173,13 @@ def _export_cb_archive() -> dict:
         price.append(app._metric_on("price_usd", day))
     path = SITE / "cost_basis" / "BTC_archive.json.gz"
     _dump({"bucket_usd": app.CB_ARCHIVE_ZONE_USD, "grid_from_usd": 0.0,
-           "cadence_days": 7, "dates": dates, "counts": counts,
-           "supply": supply, "price_usd": price}, path, gz=True)
+           "cadence_days": cadence, "daily_from": daily_from, "dates": dates,
+           "counts": counts, "supply": supply, "price_usd": price}, path, gz=True)
     return {"BTCUSDT": {
         "path": "cost_basis/BTC_archive.json.gz",
         "bucket_usd": app.CB_ARCHIVE_ZONE_USD,
-        "cadence_days": 7,
+        "cadence_days": cadence,
+        "daily_from": daily_from,
         "tolerance_days": app.CB_SNAP_TOLERANCE_DAYS,
         # a requested end past the newest stored curve is still answered from
         # it within this many days (the page red-flags the days beyond it)
@@ -162,9 +196,9 @@ def _export_cb_dated() -> dict:
 
     `urpd_curves.parquet` is the generation the fixed windows are built from, so
     a pair whose ends both foot on stored dates is the publisher's own
-    subtraction and agrees with the preset panel bar for bar; the weekly archive
-    shipped beside this file is the fallback (it reaches further back, one date a
-    week, and no further forward than the newest Sunday).
+    subtraction and agrees with the preset panel bar for bar; the per-date archive
+    shipped beside this file is the fallback (it reaches further back, and its
+    recent tail is a curve per day -- see _export_cb_archive).
 
     Encoding: the same flat centi-BTC array as `BTC_archive.json.gz`, but with an
     explicit `prices[i]` per value rather than a dense-from-$0 grid: this store
@@ -177,7 +211,7 @@ def _export_cb_dated() -> dict:
     df = app._cb_dated_curves()
     if df is None:
         logger.warning("no dated-curve store (%s) — the published site will "
-                       "answer window=custom from the weekly archive only",
+                       "answer window=custom from the per-date archive only",
                        app.CB_CURVES.name)
         return {}
     dates = sorted(df["_d"].unique().tolist())
@@ -292,7 +326,7 @@ def build_site() -> dict:
     # 4) both dated-curve stores, shipped whole so `window=custom` is computed in
     #    the browser instead of by a server this export does not have. The
     #    publisher's own dated curves are the preferred source (the preset's own
-    #    generation), the weekly archive the fallback.
+    #    generation), the per-date archive the fallback.
     cb_archive = _export_cb_archive()
     cb_dated = _export_cb_dated()
 

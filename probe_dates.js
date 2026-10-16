@@ -205,22 +205,34 @@ function eq(label, got, want) {
     estimate_kind: "archive-pair", window_label: "2026-09-20 → 2026-10-04",
     requested_from: "2026-08-21", requested_to: "2026-10-09" };
   const r1 = h.statusProbe({ ...body, missing: { from: "2026-10-05", to: "2026-10-09" } });
-  // the answering store is NAMED in the flag: a weekly store's tail is its own
-  // grid, not a failed refresh (2026-10-16 -- the reader took it for stale data)
+  // The flag names the newest stored curve -- "missing 12/10 – 16/10" alone was
+  // read as a failed refresh on 2026-10-16. The "weekly store" clause is driven
+  // by the ANSWERING STORE's own cadence in the payload (`archive.cadence_days`),
+  // not by the code path: the archive's recent tail is a curve per day now, and a
+  // hardcoded "weekly" is exactly the claim that goes stale.
   eq("flag text two days", r1.text,
-     "missing 05/10/2026 – 09/10/2026 · weekly store (newest 04/10/2026)");
+     "missing 05/10/2026 – 09/10/2026 · newest curve 04/10/2026");
   eq("flag shown", r1.hidden, false);
   eq("flag title names the newest date", r1.title.includes("04/10/2026"), true);
-  eq("flag title says the days are past the curve, not late",
-     r1.title.includes("not fail to arrive"), true);
+  eq("flag title says the days are past the curve",
+     r1.title.includes("sit past it"), true);
   const r2 = h.statusProbe({ ...body, missing: { from: "2026-10-10", to: "2026-10-10" } });
-  eq("flag text single day", r2.text, "missing 10/10/2026 · weekly store (newest 04/10/2026)");
+  eq("flag text single day", r2.text, "missing 10/10/2026 · newest curve 04/10/2026");
+  // A store that IS still on the weekly grid says so, and says why the days are
+  // not late -- the version of this flag the cloud shows while its own daily
+  // region is still being fetched.
+  const r2w = h.statusProbe({ ...body, archive: { cadence_days: 7, daily_from: null },
+    missing: { from: "2026-10-10", to: "2026-10-12" } });
+  eq("a weekly store says so", r2w.text,
+     "missing 10/10/2026 – 12/10/2026 · newest curve 04/10/2026 · weekly store");
+  eq("...and its title says the days did not fail to arrive",
+     r2w.title.includes("did not fail to arrive"), true);
   // ...and a pair the publisher's own DATED curves answered carries no such
-  // suffix: that store is daily, so its tail really is a curve not stored yet
+  // suffix (its store is irregular, and it reaches the newest published day)
   const r2b = h.statusProbe({ ...body, estimate_kind: "dated-pair-custom",
     missing: { from: "2026-10-10", to: "2026-10-12" } });
   eq("dated-pair flag keeps the plain wording", r2b.text,
-     "missing 10/10/2026 – 12/10/2026");
+     "missing 10/10/2026 – 12/10/2026 · newest curve 04/10/2026");
   const r3 = h.statusProbe({ ...body, missing: null });
   eq("flag hidden without missing", [r3.hidden, r3.text], [true, ""]);
   const r4 = h.statusProbe({ available: false, as_of: null, data_vintage: null,

@@ -12,15 +12,17 @@ What it establishes, and why each part is worded the way it is:
     curve matches the chart to 0.0000 BTC across all 126 $1,000 zones.
   * urpd_diff_30's past end is EXCLUDED, not tolerated: the last ~month is still
     revised upstream (the chart's past is ~29.9k BTC heavier in one zone), which
-    is exactly why the collector re-fetches the newest three anchors every run.
+    is exactly why the collector re-fetches every anchor inside the newest ~35
+    days on every run.
   * The "now" end may differ in ONE zone (~43k BTC at $80k on 2026-09-20, with
     spot sitting on that boundary) and by a few hundred BTC net over 20M.  That
     is today's curve being computed twice, hours apart — provisional, not wrong.
 
-The chart's `prev_as_of_date` is not always a weekly anchor (2024-11-01 is a
-Friday), so the earlier curve is fetched through the collector's own
-`fetch_series` — same validation, same per-date cache — rather than jumping to
-the nearest archived date, which would prove nothing.
+The chart's `prev_as_of_date` need not be a date the archive stores (2024-11-01
+is a Friday, and the archive's weekly region holds Sundays), so the earlier
+curve is fetched through the collector's own `fetch_series` — same validation,
+same per-date cache — rather than jumping to the nearest stored date, which
+would prove nothing.
 
 Run after a backfill, or whenever a number from this store is being doubted.
 Exits non-zero if a settled comparison fails.

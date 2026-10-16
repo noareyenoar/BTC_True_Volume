@@ -146,19 +146,21 @@ const CENT = 0.005;
 // ISO -> the dd/mm/yyyy the page prints (mirrors fmtDay, the reading the eyes get)
 const dm = iso => iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4);
 /* The red flag's text, mirrored from app.js's updateCostBasisStatus — ONE
- * place, because this ran as two copies and the copies are a trap: the wording
- * changed in app.js on 2026-10-16 (a weekly-archive tail now names its store)
- * and the stale copies here turned a wording edit into a FAILED cloud run whose
- * push step was skipped. A tail the WEEKLY archive could not carry is that
- * store's own grid, so the flag says so and quotes its newest anchor; a tail
- * from the dated store is a curve not stored yet and carries no such note. */
+ * place, because this ran as two copies and the copies are a trap: a wording
+ * change in app.js turned into a FAILED cloud run with its push skipped
+ * (2026-10-16). The flag always names the newest stored curve ("missing
+ * 12/10–16/10" alone was read as a failed refresh), and adds the "weekly store"
+ * clause from the ANSWERING STORE's own cadence in the payload — which is what
+ * makes this helper work unchanged for a daily archive, a weekly one, and the
+ * dated store that carries no cadence at all. */
 function wantFlag(payload) {
   const m = payload && payload.missing;
   if (!m) return "";
   const newest = payload.as_of ? dm(payload.as_of) : "—";   // fmtDay's own dash
+  const cad = (payload.archive && payload.archive.cadence_days) || 0;
   return "missing " + dm(m.from) + (m.from === m.to ? "" : " – " + dm(m.to))
-    + (payload.estimate_kind === "archive-pair"
-        ? " · weekly store (newest " + newest + ")" : "");
+    + " · newest curve " + newest
+    + (cad >= 7 ? " · weekly store" : "");
 }
 // the payload's own positive/negative totals: the denominators cum_acc/cum_dist
 // are shares of, needed to bound their rounding (see tolFor)

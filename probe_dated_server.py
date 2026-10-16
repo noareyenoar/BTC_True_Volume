@@ -23,14 +23,16 @@ from visualizer import app                                   # noqa: E402
 
 # The pairs are DERIVED, not hard-coded: both stores rotate with every refresh
 # (the dated store replaces its recent anchors with the curves the publisher now
-# serves -- the 30d/90d/180d/365d windows; the weekly archive appends a Sunday),
+# serves -- the 30d/90d/180d/365d windows; the archive appends the newest day),
 # so a literal pair written today is a decline-only pair in a month and the probe
 # would silently stop exercising the dated path. Anchoring on the 30d preset's
 # own endpoints keeps every scenario pointed at a live branch of the rule:
 #   1. preset-exact            both ends stored -> dated, reproduces the 30d window
 #   2. start 2 days off        -> dated with from_snapped (inside the 4-day tolerance)
 #   3. start 5 days off        -> outside the dated tolerance, archive must answer
-#   4. history (2020 pair)     -> archive answers (dated store has no 2020 anchor there)
+#                                (and, with a daily archive, on an exact stored date)
+#   4. history (2020 pair)     -> archive answers (dated store has no 2020 anchor there;
+#                                the weekly region is what serves it)
 #   5. 2022-12-31 -> now       -> dated across grid generations, regrouped at $1,000
 #   6. now-2 -> now-1          -> both ends snap to the SAME dated curve -> refused
 #   7. end +5 past dated max   -> dated answers from its newest curve, `missing` flags

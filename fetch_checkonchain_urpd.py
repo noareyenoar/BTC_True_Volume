@@ -59,11 +59,12 @@ window, so any comparison the reader picks has to be assembled from dated curves
 -- and the chart family only stamps a handful of those.  checkonchain's own URPD
 Analysis Tool gets its arbitrary dates from ``bitview.space``, and that endpoint
 serves a full curve for every published date back to 2009-01-03.  This file
-backfills one date a week from 2016 into ``urpd_archive.parquet`` (a separate
-store, on its own $200 grid) and keeps its newest anchors current, which is what
-makes a cost-basis window of the reader's choosing possible at all.  The archive
-is verified against the publisher's own precomputed diffs -- see the section
-comment above ``BITVIEW_BASE``.
+backfills ``urpd_archive.parquet`` (a separate store, on its own $200 grid) --
+one date a week from 2016, and EVERY published date from ``SERIES_DAILY_START``
+on -- and keeps its newest anchors current, which is what makes a cost-basis
+window of the reader's choosing possible at all.  The archive is verified against
+the publisher's own precomputed diffs -- see the section comment above
+``BITVIEW_BASE``.
 """
 from __future__ import annotations
 
@@ -763,14 +764,40 @@ SERIES_START = date(2016, 1, 3)
 SERIES_CADENCE_DAYS = 7
 # Anchors are calendar dates on a $7-day step snapped onto whichever dates the
 # host actually published, so a week the publisher skipped shifts its anchor by
-# a day or two instead of leaving a hole in the archive.
+# a day or two instead of leaving a hole in the archive.  Since 2026-10-16 this
+# is the grid for everything BEFORE SERIES_DAILY_START; from there on, every
+# published date is an anchor of its own.
 SERIES_SNAP_DAYS = 3
-SERIES_TAIL_REFRESH = 3
-# How long the tail keeps moving.  Measured 2026-09-20: today's curve moves
-# through the day and the last ~month is still restated upstream, so a curve
-# inside this window is not evidence against the live charts and not evidence
-# for them either -- it is a reading that has not settled.
+# Where the daily region starts -- a FIXED date, deliberately not "the last N
+# days".  It is the Sunday that sits exactly ON the weekly lattice (104 weeks
+# before the 2026-10-11 anchor), so the two grids meet with no seam and no snap
+# band at the joint.  Pinning it keeps the store's date set a pure function of
+# the host's listing and this file, which is what lets the PC and the cloud
+# build the same dates from different caches and lets verify_all compare them;
+# a rolling window would instead drop one date every day and make the date set
+# depend on whether that run happened to rebuild.  The cost is growth, not
+# churn: ~+630 curves (~+0.85 MB of shipped artifact) per year.
+SERIES_DAILY_START = date(2024, 10, 13)
+# A gap this wide or narrower inside the daily region still counts as daily (the
+# host occasionally skips a day).  Wider means the region is not converged, and
+# then the store falls back to the weekly grid rather than shipping a hole --
+# see store_dates().
+SERIES_DAILY_MAX_GAP = 3
+# Every anchor inside this many DAYS of the newest published date is re-fetched
+# on every run.  Measured 2026-09-20: today's curve moves through the day and the
+# last ~month is still restated upstream, so a curve inside this window is not
+# evidence against the live charts and not evidence for them either -- it is a
+# reading that has not settled.  In DAYS, not in anchors: "the newest three
+# anchors" meant three weeks while the grid was weekly, and the same phrase would
+# have quietly meant three days once it went daily.
 SERIES_PROVISIONAL_DAYS = 35
+# Wall-clock budget for a routine run's catch-up (seconds): the cloud job is 90
+# minutes and the refresh chain sits in the middle of it, so a machine that has
+# never fetched the daily region must not spend an unbounded amount of it here.
+# Progress lives in the per-date cache files, so the next run continues where
+# this one stopped.  None removes the limit; the explicit backfill mode ignores
+# it (that is what the flag is for).
+SERIES_CATCHUP_BUDGET_S = 2400
 ARCHIVE_NAME = "urpd_archive.parquet"
 ARCHIVE_MODES = ("tail", "backfill", "off")
 
@@ -790,9 +817,9 @@ def _parse_date_list(payload: Any) -> List[date]:
 
 
 def fetch_available_dates(client: RateLimitedClient) -> List[date]:
-    """Every date the host can serve, oldest first (6,465 of them, to today).
+    """Every date the host can serve, oldest first (~6,500 of them, to today).
 
-    Cached, because a 560-date backfill must not depend on a listing call
+    Cached, because a thousand-date backfill must not depend on a listing call
     succeeding, and because the list only ever grows at the tail.
     """
     r = _get(client, f"{BITVIEW_BASE}/api/series/cost-basis/all/dates")
@@ -834,8 +861,17 @@ def nearest_anchor(available: List[date], target: date) -> Optional[date]:
 
 def series_anchors(available: List[date], start: date = SERIES_START,
                    cadence: int = SERIES_CADENCE_DAYS,
-                   snap: int = SERIES_SNAP_DAYS) -> Tuple[List[date], List[date]]:
-    """(anchors, dropped) -- the weekly archive grid, snapped onto real dates."""
+                   snap: int = SERIES_SNAP_DAYS,
+                   daily_start: date = SERIES_DAILY_START) -> Tuple[List[date], List[date]]:
+    """(anchors, dropped) -- the archive's full grid, two regions in one list.
+
+    Everything before ``daily_start`` is the weekly lattice, snapped onto real
+    published dates; from ``daily_start`` on, every date the host published is an
+    anchor.  This is both the fetch list and -- once the daily region is complete,
+    see store_dates() -- the store's date set.  ``dropped`` describes the weekly
+    region only: a $7-day step that found no published date within ``snap`` days
+    means the host skipped that whole week.
+    """
     if not available:
         return [], []
     anchors: List[date] = []
@@ -843,7 +879,7 @@ def series_anchors(available: List[date], start: date = SERIES_START,
     seen: set = set()
     end = available[-1]
     day = start
-    while day <= end:
+    while day < daily_start and day <= end:
         a = nearest_anchor(available, day)
         if a is None or abs((a - day).days) > snap:
             dropped.append(day)          # publisher skipped that whole week
@@ -851,7 +887,47 @@ def series_anchors(available: List[date], start: date = SERIES_START,
             seen.add(a)
             anchors.append(a)
         day += timedelta(days=cadence)
+    for a in available:
+        if a >= daily_start and a not in seen:
+            seen.add(a)
+            anchors.append(a)
+    anchors.sort()
     return anchors, dropped
+
+
+def daily_region_missing(available: List[date],
+                         daily_start: date = SERIES_DAILY_START) -> List[date]:
+    """Published dates from ``daily_start`` on that have no cached curve yet.
+
+    Empty means the region is complete -- the only state in which the store is
+    allowed to carry daily dates.  This is the catch-up's work list, ordered
+    NEWEST FIRST on purpose: a run that spends its budget and stops should have
+    filled the days a reader is most likely to ask about.
+    """
+    return [d for d in reversed(available)
+            if d >= daily_start and not _series_path(d).exists()]
+
+
+def store_dates(available: List[date], anchors: List[date]) -> List[date]:
+    """The dates the STORE may carry: all of them, or the weekly lattice alone.
+
+    All-or-nothing by design.  The archive path in the API answers any pair by
+    snapping each end to the nearest stored date with NO distance limit -- it is
+    the fallback that must always answer -- so a store holding a half-fetched
+    daily region would silently serve a window hundreds of days away from the one
+    that was asked for, and no guard downstream would see it.  Until the region
+    is complete the store is exactly what it was before the daily region existed:
+    the weekly lattice, complete and honest about its own coarseness.
+    """
+    if not daily_region_missing(available):
+        return list(anchors)
+    # Fall back to the plain weekly lattice across the WHOLE span -- the store
+    # exactly as it was before the daily region existed, ending on the newest
+    # Sunday.  Not the hybrid grid with its tail cut off at SERIES_DAILY_START:
+    # that would drop the last two years and refuse every recent pair while the
+    # region fills, which is worse than the coarseness it was meant to avoid.
+    weekly, _ = series_anchors(available, daily_start=available[-1] + timedelta(days=1))
+    return weekly
 
 
 def parse_series(text: str) -> Dict[float, float]:
@@ -951,17 +1027,23 @@ def fetch_series(client: RateLimitedClient, day: date, *,
 
 
 def sync_series(client: RateLimitedClient, *, mode: str = "tail",
-                start: date = SERIES_START) -> Dict[str, Any]:
+                start: date = SERIES_START,
+                budget_s: Optional[float] = SERIES_CATCHUP_BUDGET_S) -> Dict[str, Any]:
     """Keep the per-date cache current.  Never raises; returns a summary.
 
-    ``tail`` re-fetches only the newest anchors -- the only ones the publisher
-    still revises -- so a routine refresh costs three requests.  ``backfill``
-    additionally fetches every anchor with no cache file, resumably.
+    ``tail`` re-fetches every anchor inside ``SERIES_PROVISIONAL_DAYS`` of the
+    newest published date -- the only curves the publisher still revises -- and
+    then fills the daily region's missing dates, newest first, until ``budget_s``
+    seconds have been spent.  ``backfill`` walks the same list with no budget at
+    all, which is what a one-off ``--backfill-series`` run is for.  Progress is
+    the per-date cache files themselves, so a run that stops early (budget,
+    timeout, host outage) simply continues on the next one.
     """
     out: Dict[str, Any] = {"mode": mode, "skipped": mode == "off",
                            "n_available": 0, "last_available": None,
-                           "anchors": [], "dropped": [], "refreshed": [],
-                           "changed": [], "fetched_utc": None}
+                           "anchors": [], "dropped": [], "store_dates": [],
+                           "daily_missing": [], "refreshed": [], "changed": [],
+                           "catchup_remaining": 0, "fetched_utc": None}
     if mode not in ARCHIVE_MODES:
         raise ValueError(f"series mode must be one of {ARCHIVE_MODES}")
     if mode == "off":
@@ -971,26 +1053,56 @@ def sync_series(client: RateLimitedClient, *, mode: str = "tail",
         logger.warning("bitview: no date listing -- series sync skipped")
         return out
     anchors, dropped = series_anchors(available, start)
-    out.update(n_available=len(available), last_available=available[-1].isoformat(),
+    missing_daily = daily_region_missing(available)
+    newest = available[-1]
+    tail = [a for a in anchors if (newest - a).days <= SERIES_PROVISIONAL_DAYS]
+    tail_set = set(tail)
+    out.update(n_available=len(available), last_available=newest.isoformat(),
                anchors=anchors, dropped=dropped,
                fetched_utc=datetime.now(timezone.utc).isoformat())
-    tail = anchors[-SERIES_TAIL_REFRESH:]
-    tail_set = set(tail)
+    if missing_daily:
+        logger.info("bitview: daily region %s..%s is %d date(s) short of complete%s",
+                    SERIES_DAILY_START.isoformat(), newest.isoformat(),
+                    len(missing_daily),
+                    "" if (mode == "backfill" or budget_s is None)
+                    else f" -- fetching newest first, {int(budget_s)}s budget")
     if mode == "backfill":
-        missing = [a for a in anchors if not _series_path(a).exists()]
-        targets = missing + [a for a in tail if a not in set(missing)]
+        targets = missing_daily + [a for a in tail if a not in set(missing_daily)]
     else:
-        targets = tail
-    for day in targets:
-        curve, changed = fetch_series(client, day, refresh=day in tail_set)
+        targets = tail + [a for a in missing_daily if a not in tail_set]
+    t_fetch = time.time()
+    for i, day in enumerate(targets):
+        is_tail = day in tail_set
+        # The provisional tail is never cut short: those are the curves that
+        # still move and there are only ~35 of them.  The catch-up is the part
+        # that can wait for the next run.
+        if (not is_tail and budget_s is not None
+                and time.time() - t_fetch > budget_s):
+            out["catchup_remaining"] = sum(1 for d in targets[i:] if d not in tail_set)
+            logger.warning("bitview: catch-up budget (%ds) spent -- %d date(s) left "
+                           "for the next run (the cache keeps what was fetched)",
+                           int(budget_s), out["catchup_remaining"])
+            break
+        curve, changed = fetch_series(client, day, refresh=is_tail)
         if curve is not None:
             out["refreshed"].append(day.isoformat())
             if changed:
                 out["changed"].append(day.isoformat())
-    logger.info("bitview: %d anchors (%s..%s), %d/%d dropped, %d refreshed (%d changed)",
+    # Recomputed AFTER the fetches, deliberately: a run that completes the daily
+    # region must be able to release the daily store in the same pass -- the
+    # all-or-nothing rule is about the store never holding a hole, not about
+    # needing a second run to notice.  The sidecar's cadence_days / daily_from /
+    # n_missing_in_window all key off this, so getting it from the pre-fetch state
+    # would label a finished store by what it looked like an hour ago.
+    out["daily_missing"] = daily_region_missing(available)
+    out["store_dates"] = store_dates(available, anchors)
+    logger.info("bitview: %d anchors (%s..%s), %d/%d dropped, %d refreshed (%d changed), "
+                "store %d dates%s",
                 len(anchors), anchors[0] if anchors else "-",
                 anchors[-1] if anchors else "-", len(dropped), len(anchors) + len(dropped),
-                len(out["refreshed"]), len(out["changed"]))
+                len(out["refreshed"]), len(out["changed"]), len(out["store_dates"]),
+                f", daily region still {len(out['daily_missing'])} short"
+                if out["daily_missing"] else "")
     return out
 
 
@@ -1111,11 +1223,15 @@ def cross_check_live(df: pd.DataFrame) -> Dict[str, Any]:
                                               "source_chart"])
     cur = cur[(cur["variant"] == "supply") & cur["cohort"].isna()].copy()
     cur["_d"] = cur["as_of_date"].astype(str).str[:10]
-    cur = cur[cur["_d"].isin(set(df["as_of_date"].astype(str)))]
+    # The archive side is grouped ONCE, outside the loop. It used to rebuild a
+    # full-frame string column on every iteration, and the daily region now
+    # overlaps ~32 of the chart store's own dated curves instead of a handful.
+    by_day = {d: g for d, g in df.groupby(df["as_of_date"].astype(str))}
+    cur = cur[cur["_d"].isin(by_day)]
     if cur.empty:
         out["note"] = "no date shared with the curve store"
         return out
-    newest = max(date.fromisoformat(d) for d in set(df["as_of_date"].astype(str)))
+    newest = max(date.fromisoformat(d) for d in by_day)
     for day, grp in cur.groupby("_d"):
         legacy = grp["source_chart"].map(_is_legacy)
         if bool(legacy.all()):
@@ -1129,7 +1245,7 @@ def cross_check_live(df: pd.DataFrame) -> Dict[str, Any]:
             return pd.Series(rows["value"].to_numpy(dtype="float64"),
                              index=z).groupby(level=0).sum()
 
-        both = pd.concat({"a": zones(df[df["as_of_date"].astype(str) == day]),
+        both = pd.concat({"a": zones(by_day[day]),
                           "c": zones(live_rows)}, axis=1).fillna(0.0)
         delta = (both["a"] - both["c"]).abs()
         abs_max = float(delta.max())
@@ -1198,16 +1314,32 @@ def write_archive(days: List[date], *, sync: Dict[str, Any],
     out = OUT_DIR / ARCHIVE_NAME
     meta = {
         "dataset_id": "checkonchain_urpd_archive",
-        "description": ("URPD curves on a uniform $200 grid for one date per week, "
-                        "read from checkonchain's own per-date series API -- the "
-                        "archive that lets any two dates be compared"),
+        "description": ("URPD curves on a uniform $200 grid, read from checkonchain's "
+                        "own per-date series API -- the archive that lets any two "
+                        f"dates be compared. One date per week back to 2016, one per "
+                        f"day from {SERIES_DAILY_START.isoformat()} on."),
         "data_source": DS.get("checkonchain_bitview", "checkonchain_bitview_series_api"),
         "confidence_tier": "Medium",
         "captured_from": f"{BITVIEW_BASE} (per-date URPD series, bucket=lin200)",
         "source_hosts": {"series_api": BITVIEW_BASE},
         "bucket_usd": SERIES_BUCKET_USD,
         "grid": "uniform $200 lattice, dense from $0 to each date's own top",
-        "cadence_days": SERIES_CADENCE_DAYS,
+        # `cadence_days` is the FINEST step the store reaches: 1 once the daily
+        # region is in (see store_dates -- it is all-or-nothing), and the weekly
+        # step while that region is still being fetched.  Read from the sync
+        # result, NOT from the store's last date: the weekly fallback also ends
+        # after SERIES_DAILY_START (it ends on the newest Sunday), so a date test
+        # would label a weekly store daily -- which is the one claim the whole UI
+        # and verify_all key off.  `daily_from` names where the region starts;
+        # `daily_complete`/`n_missing_in_window` are the honest answer to "is it
+        # in yet", which the old sidecar left the reader to infer from a bare
+        # list of dates.
+        "cadence_days": SERIES_CADENCE_DAYS
+                        if (sync.get("daily_missing") or []) else 1,
+        "daily_from": None if (sync.get("daily_missing") or [])
+                      else SERIES_DAILY_START.isoformat(),
+        "daily_complete": not (sync.get("daily_missing") or []),
+        "n_missing_in_window": len(sync.get("daily_missing") or []),
         "anchor_start": days[0].isoformat() if days else None,
         "series_dates": vintage,
         "n_dates": stats["n_dates"],
@@ -1223,21 +1355,28 @@ def write_archive(days: List[date], *, sync: Dict[str, Any],
         # produced the store it names.
         "known_limitations": [
             "THE RECENT TAIL IS PROVISIONAL: today's curve is restated through "
-            "the day and the last ~month is still revised upstream. The newest "
-            "three anchors are re-fetched on every run precisely because of this, "
-            "and the store is rewritten whole when any of them moves.",
-            "One date per week. A pair whose end falls between anchors is served "
-            "from the nearest published date, and the payload names both the "
-            "requested and the resolved date rather than quietly substituting.",
+            f"the day and the last ~month is still revised upstream. Every anchor "
+            f"inside {SERIES_PROVISIONAL_DAYS} days of the newest published date is "
+            "re-fetched on every run precisely because of this, and the store is "
+            "rewritten whole when any of them moves.",
+            f"Two grids in one store, one date per week from {SERIES_START} to "
+            f"{SERIES_DAILY_START} and every published date from there on. The "
+            "daily region is ALL-OR-NOTHING: until every date in it is cached the "
+            "store carries the weekly lattice alone, because the archive path "
+            "snaps a requested end to the nearest stored date with no distance "
+            "limit and would otherwise serve a window hundreds of days from the "
+            "one asked for. A pair whose end falls between weekly anchors is "
+            "served from the nearest published date, and the payload names both "
+            "the requested and the resolved date rather than quietly substituting.",
             "No data before 2016-01-03 in this archive (the host publishes back "
             "to 2009, the backfill simply starts here). Early windows read oddly: "
             "on 2016-01-03 the $0 bucket (coins with no known cost basis) holds "
             "5,037,889 BTC -- a THIRD of that date's 15.04M supply -- the whole "
             "curve is six occupied buckets deep, and the top one is $1,000.",
-            "The payload is sparse and the grid is not: interior slots the host "
-            "omits are zero-filled, 805 of them across the archive (worst date "
-            "2024-11-24, 15 empty $200 slots below its $99,000 top). An absent "
-            "slot means zero supply at that price, never unknown supply.",
+            f"The payload is sparse and the grid is not: interior slots the host "
+            f"omits are zero-filled -- {stats['n_omitted']:,} of them in this "
+            "build. An absent slot means zero supply at that price, never "
+            "unknown supply.",
             "A $200 grid is a genuine second generation of the same data: it "
             "matches the live charts bit-for-bit, but the mirror-era $200/$500 "
             "snapshots in urpd_curves.parquet for the same dates differ "
@@ -1376,7 +1515,11 @@ def run(force: bool = False, series_mode: str = "tail",
                                    "refreshed": []}
     if series_mode != "off":
         sclient = RateLimitedClient(min_interval=1.0, user_agent=BITVIEW_UA)
-        series_sync = sync_series(sclient, mode=series_mode, start=series_start)
+        # An explicit backfill is the one place with no clock on it (it is a
+        # person saying "fill it in now"); the routine tail run keeps its budget.
+        series_sync = sync_series(
+            sclient, mode=series_mode, start=series_start,
+            budget_s=None if series_mode == "backfill" else SERIES_CATCHUP_BUDGET_S)
     result["series"] = series_sync
 
     # This directory also holds phase4's urpd_snapshot.parquet and its bare
@@ -1537,9 +1680,12 @@ def run(force: bool = False, series_mode: str = "tail",
     # whenever the series sync ran -- it is rebuilt whole from the per-date cache,
     # so a chart-only run (--series-mode off) leaves it exactly as it was.
     archive_out = None
-    if series_sync["anchors"]:
+    if series_sync.get("store_dates"):
         prev_archive = load_json_cache(OUT_DIR / "urpd_archive_meta.json") or {}
-        archive_out = write_archive(series_sync["anchors"], sync=series_sync,
+        # store_dates, not anchors: the anchors are the full grid (and the fetch
+        # list), while the store may only carry the daily region once it is
+        # complete -- see store_dates().
+        archive_out = write_archive(series_sync["store_dates"], sync=series_sync,
                                     prev_meta=prev_archive)
         if archive_out:
             outputs.append(str(archive_out))
@@ -1557,9 +1703,11 @@ def run(force: bool = False, series_mode: str = "tail",
             f"{len(curves):,} curve rows across {len(vintage)} distinct dates",
             f"{len(diffs):,} diff rows ({len(diffs_ok)} ok, {len(diffs_bad)} dropped)",
             f"{len(series):,} series rows from {n_series} points",
-            f"archive: {len(series_sync['anchors'])} anchors, "
+            f"archive: {len(series_sync.get('store_dates') or [])} dates, "
             f"{len(series_sync['refreshed'])} re-checked, "
             f"{len(series_sync['changed'])} moved"
+            + (f", daily region {len(series_sync.get('daily_missing') or [])} short"
+               if series_sync.get("daily_missing") else "")
             + (f" -> {archive_out.name}" if archive_out else " (not written)"),
         ])
     return result
@@ -1591,16 +1739,18 @@ def main() -> int:
     ap.add_argument("--force", action="store_true",
                     help="re-download every chart and ignore the tree-sha gate")
     ap.add_argument("--backfill-series", action="store_true",
-                    help="fetch every dated curve the weekly archive is missing "
-                         "(~560 requests, one-time, resumable -- re-run after a "
-                         "throttled run to pick up where it stopped)")
+                    help="fetch every dated curve the archive is missing, with no "
+                         "per-run time budget (~630 for the daily region today; "
+                         "one-time, resumable -- re-run after a throttled run to "
+                         "pick up where it stopped)")
     ap.add_argument("--series-start", default=SERIES_START.isoformat(),
                     metavar="YYYY-MM-DD",
                     help=f"first date of the weekly archive grid "
                          f"(default {SERIES_START.isoformat()})")
     ap.add_argument("--series-mode", choices=ARCHIVE_MODES, default=None,
-                    help="tail (default): re-check the newest anchors only; "
-                         "backfill: also fetch every missing anchor; "
+                    help="tail (default): re-check the newest anchors and top the "
+                         "daily region up within a time budget; "
+                         "backfill: also fetch every missing anchor, no budget; "
                          "off: leave the archive alone")
     args = ap.parse_args()
     mode = args.series_mode or ("backfill" if args.backfill_series else "tail")

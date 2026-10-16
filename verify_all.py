@@ -48,12 +48,23 @@ LABEL_SOURCES = {"blockchain.com_charts_api", "etherscan_free_api", "coinmetrics
                  "checkonchain_bitview_series_api",
                  "merged multi-source (see blocks_meta)"}
 
-# The weekly dated-curve archive the visualizer's window=custom reads. Its grid
-# is $200, which does NOT nest in the publisher's $500 -- so the width is part of
-# the store's identity, not a presentation detail: a $500 row written into it
-# would be silently summed into $200 buckets by every reader.
+# The per-date archive the visualizer's window=custom reads. Its grid is $200,
+# which does NOT nest in the publisher's $500 -- so the width is part of the
+# store's identity, not a presentation detail: a $500 row written into it would
+# be silently summed into $200 buckets by every reader.
+# Two grids live in it: one date a week from 2016, and EVERY published date from
+# CB_ARCHIVE_DAILY_FROM on. The daily claim is the one worth checking, because the
+# archive path snaps a requested end to the nearest stored date with no distance
+# limit (it is the fallback that must always answer) -- a store that says it is
+# daily while holding holes would serve a window weeks from the one asked for and
+# draw a plausible chart of it. Same constants as the collector's SERIES_DAILY_*
+# and SERIES_PROVISIONAL_DAYS.
 CB_ARCHIVE = PROCESSED / "onchain" / "checkonchain" / "BTC" / "urpd_archive.parquet"
+CB_ARCHIVE_META = CB_ARCHIVE.with_name("urpd_archive_meta.json")
 CB_ARCHIVE_ZONE_USD = 200.0
+CB_ARCHIVE_DAILY_FROM = "2024-10-13"
+CB_ARCHIVE_DAILY_MAX_GAP = 3
+CB_ARCHIVE_PROVISIONAL_DAYS = 35
 CB_CURVES = PROCESSED / "onchain" / "checkonchain" / "BTC" / "urpd_curves.parquet"
 # The published page computes a custom window from THIS artifact, without a server,
 # so it is part of the deliverable and not an export detail.
@@ -75,6 +86,16 @@ ETF_MIN_DAYS = 985                            # the series only grows; a fall me
 SERIES_STORE = PROCESSED / "onchain" / "checkonchain" / "BTC" / "checkonchain_series.parquet"
 ETF_EXPORT = PROCESSED.parent / "site" / "etf" / "BTCUSDT.json"
 ETF_EXPORT_ETH = PROCESSED.parent / "site" / "etf" / "ETHUSDT.json"
+
+
+def _archive_meta() -> Dict[str, Any]:
+    """The archive store's own sidecar (a named file, not the directory's _meta)."""
+    if not CB_ARCHIVE_META.exists():
+        return {}
+    try:
+        return json.loads(CB_ARCHIVE_META.read_text(encoding="utf-8"))
+    except ValueError:
+        return {}
 
 
 def _meta(path: Path) -> Dict[str, Any]:
@@ -253,7 +274,7 @@ def verify_final() -> List[str]:
 
 
 def verify_cb_archive() -> List[str]:
-    """The weekly $200 dated-curve archive behind the any-window cost basis.
+    """The per-date $200 archive behind the any-window cost basis.
 
     Structural, because that is the failure this store's sibling has already
     suffered once: rows landing at a key that does not mean what the reader
@@ -316,10 +337,36 @@ def verify_cb_archive() -> List[str]:
     if len(bad):
         errs.append("cb_archive: implausible supply on " +
                     ", ".join(f"{d} ({x:,.0f} BTC)" for d, x in bad.head(4).items()))
-    gaps = pd.Series(totals.index).pipe(lambda s: pd.to_datetime(s).diff().dt.days).dropna()
+    # Gaps are indexed by the LATER date, so the daily claim can be tested on its
+    # own region instead of over the whole store.
+    gaps = pd.Series(pd.to_datetime(totals.index), index=totals.index).diff().dt.days.dropna()
     if len(gaps) and gaps.max() > 10:
-        errs.append(f"cb_archive: {int((gaps > 10).sum())} cadence gap(s) wider than 10 "
-                    f"days (max {int(gaps.max())}) — the anchors are meant to be weekly")
+        errs.append(f"cb_archive: {int((gaps > 10).sum())} gap(s) wider than 10 days "
+                    f"(max {int(gaps.max())}) — wider than either grid this store carries")
+    meta = _archive_meta()
+    if meta.get("cadence_days") == 1:
+        # The sidecar CLAIMS the daily region is in. The collector only releases
+        # that region whole (store_dates(), all-or-nothing), so hold it to it: a
+        # claim the data cannot back is worse than the weekly grid it replaced.
+        if meta.get("daily_from") != CB_ARCHIVE_DAILY_FROM:
+            errs.append(f"cb_archive: sidecar daily_from={meta.get('daily_from')!r}, this "
+                        f"checker knows {CB_ARCHIVE_DAILY_FROM!r} — one of the two moved")
+        if CB_ARCHIVE_DAILY_FROM not in totals.index:
+            errs.append(f"cb_archive: cadence_days=1 but the store holds no curve at "
+                        f"{CB_ARCHIVE_DAILY_FROM} — the daily region is not whole")
+        # Both ends of the gap must be inside the region: the seam itself is a
+        # 7-day step (the last weekly lattice point to the first daily date) and
+        # is exactly what the two grids meeting looks like.
+        daily_from_ts = pd.Timestamp(CB_ARCHIVE_DAILY_FROM)
+        prev_ts = pd.Series(pd.to_datetime(totals.index), index=totals.index).shift(1)
+        in_daily = gaps[(pd.Series(pd.to_datetime(totals.index),
+                                   index=totals.index) > daily_from_ts)
+                        & (prev_ts >= daily_from_ts)]
+        if len(in_daily) and in_daily.max() > CB_ARCHIVE_DAILY_MAX_GAP:
+            errs.append(f"cb_archive: cadence_days=1 but the daily region has "
+                        f"{int((in_daily > CB_ARCHIVE_DAILY_MAX_GAP).sum())} gap(s) wider "
+                        f"than {CB_ARCHIVE_DAILY_MAX_GAP} days (max {int(in_daily.max())}) "
+                        f"— that region must be whole or absent")
 
     if CB_CURVES.exists():
         cur = pd.read_parquet(CB_CURVES, columns=["as_of_date", "variant", "cohort", "value"])
@@ -328,6 +375,16 @@ def verify_cb_archive() -> List[str]:
         shared_cur = cur.groupby("_d")["value"].sum()
         rel = (totals - shared_cur.reindex(totals.index)).abs() / shared_cur.reindex(totals.index)
         worst = rel.dropna()
+        # The publisher's own restatement window is excluded, exactly as the
+        # collector's cross_check_live excludes it: the two stores are readings of
+        # a curve that is still moving, and at daily cadence every one of the last
+        # ~35 days is shared with the chart store (before, only the odd Sunday was
+        # -- so this comparison is new ground, not a louder version of the old one).
+        if len(worst):
+            newest = datetime.fromisoformat(totals.index[-1])
+            keep = [d for d in worst.index
+                    if (newest - datetime.fromisoformat(d)).days > CB_ARCHIVE_PROVISIONAL_DAYS]
+            worst = worst.loc[keep]
         if len(worst) and float(worst.max()) > 5e-4:
             errs.append(f"cb_archive: {int((worst > 5e-4).sum())} date(s) disagree with "
                         f"urpd_curves on total supply by >0.05% "
@@ -406,7 +463,13 @@ def verify_cb_archive_export() -> List[str]:
         sha = hashlib.sha256(raw).hexdigest()
         for k, want in (("bytes", len(raw)), ("sha256", sha), ("n_dates", len(dates)),
                         ("n_values", len(supply)), ("first", dates[0]),
-                        ("last", dates[-1])):
+                        ("last", dates[-1]),
+                        # the two fields that describe WHICH grid this file is: a
+                        # manifest left saying cadence_days=7 beside a daily
+                        # artifact is exactly the drift the UI text would then
+                        # report to the reader as fact
+                        ("cadence_days", ar.get("cadence_days")),
+                        ("daily_from", ar.get("daily_from"))):
             if man.get(k) != want:
                 errs.append(f"cb_archive_export: manifest says {k}={man.get(k)!r}, the "
                             f"artifact {want!r} — the browser reads the manifest for "
@@ -428,7 +491,7 @@ def verify_cb_dated_custom() -> List[str]:
     The complaint this exists for: a reader picked 08/24 → 09/24, put it beside
     the 30d button, and got two different pictures they could not adjudicate.
     Both were internally correct -- the custom pair was being served from the
-    $200 weekly archive, which cannot reach past the newest Sunday -- but "both
+    $200 per-date archive, whose recent tail is a curve per day -- but "both
     right, and different" is not something a reader can act on. So the custom
     path now prefers the publisher's OWN dated curves whenever both ends foot on
     a date it holds, and such a pair must then be the preset exactly: same rows,

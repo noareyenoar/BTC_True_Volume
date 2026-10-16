@@ -533,10 +533,10 @@ def main() -> None:
     ap.add_argument("--force-probe", action="store_true",
                     help="re-probe the earliest published metrics day and cached 404 holes")
     ap.add_argument("--backfill-cb", action="store_true",
-                    help="one-time: walk the weekly dated-curve archive back to 2016 "
-                         "(~560 fetches at 1/s, resumable) instead of refreshing only "
-                         "the newest anchors — needed once before window=custom can "
-                         "reach further back than the last few weeks")
+                    help="one-time: fetch every dated curve the archive is missing "
+                         "with no per-run time budget (~630 for the daily region, at "
+                         "1/s, resumable) instead of topping it up within a budget — "
+                         "the automated run does the same walk, just slower")
     args = ap.parse_args()
 
     logging.basicConfig(
