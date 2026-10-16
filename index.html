@@ -33,7 +33,7 @@
       <span class="ctl-label">Cost-basis window</span>
       <div id="cb-window" class="btn-group" title="How far back the cost-basis change is measured — independent of the profile window above, because it answers a different question (on-chain supply that changed hands, not traded volume)"></div>
       <!-- Any two dates, subtracted from the supply curves stored for them (the
-           publisher's dated curves when they can carry the pair, the weekly
+           publisher's dated curves when they can carry the pair, the per-date
            archive otherwise). Two typed boxes, dd/mm/yyyy, not native date
            pickers: a native picker's displayed format follows the browser's
            language and cannot be restyled, and this page reads day-month-year.
@@ -164,11 +164,12 @@
   subtracts the supply curves stored for them. Each end snaps to the nearest stored date within
   a few days, and the status strip names both the resolved dates and <b>which store answered</b>:
   the publisher's own <b>dated curves</b> when they can carry the pair (the same series the
-  preset windows come from), the <b>weekly archive</b> otherwise (checkonchain's own series
-  API, one date a week since 2016). A window the <b>weekly archive</b> answers whose end runs
-  past its newest anchor carries a red <b>missing …</b> flag naming those days — that is the
-  weekly grid, not data that failed to arrive: the next Sunday anchor covers them, and the
-  window shown still ends at the newest curve the store has. The newest stored dates are still being restated upstream,
+  preset windows come from), the <b>per-date archive</b> otherwise (checkonchain's own series
+  API: <b>every day for its recent tail</b>, then one date a week back to 2016, so a window
+  ending today or yesterday is answered by that day's own curve). A window whose end runs past
+  the newest stored curve carries a red <b>missing …</b> flag naming those days — it names that
+  curve too, and when the store answering is the coarse one it says so, so the flag reads as
+  the edge of the data rather than as a refresh that failed. The newest stored dates are still being restated upstream,
   so a window ending within about a month of today is provisional; nothing before 03/01/2016 is
   available at all. The dated store serves a $500 price grid, the archive $200 — either way the
   <b>Who Moved</b> card groups its rows into $1,000 zones, so one wall of owners is one row
