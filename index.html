@@ -141,7 +141,9 @@
   <code>large_trades</code> (Tier-3) + <code>volume_profile</code> (tape by price) +
   <code>checkonchain_urpd</code> (on-chain supply by cost basis + holder cohorts). OHLC merge
   rule: spot bars to 31/12/2024 (spot 1d extended via flagged cross-fills), then futures UM to
-  the latest refresh. Every volume number carries its source + confidence tier on hover.<br>
+  the latest refresh. Every volume number carries its source + confidence tier on hover —
+  and a <b>click on the chart</b> switches that readout off (another click brings it back,
+  and the status strip below the chart says when it is off).<br>
   Right-edge profile: <b class="legend-tape">bars</b> = traded notional per price level over
   the selected window (Binance USD-M futures tape, one venue) — a level where real volume
   actually changed hands.<br>
@@ -163,7 +165,10 @@
   a few days, and the status strip names both the resolved dates and <b>which store answered</b>:
   the publisher's own <b>dated curves</b> when they can carry the pair (the same series the
   preset windows come from), the <b>weekly archive</b> otherwise (checkonchain's own series
-  API, one date a week since 2016). The newest stored dates are still being restated upstream,
+  API, one date a week since 2016). A window the <b>weekly archive</b> answers whose end runs
+  past its newest anchor carries a red <b>missing …</b> flag naming those days — that is the
+  weekly grid, not data that failed to arrive: the next Sunday anchor covers them, and the
+  window shown still ends at the newest curve the store has. The newest stored dates are still being restated upstream,
   so a window ending within about a month of today is provisional; nothing before 03/01/2016 is
   available at all. The dated store serves a $500 price grid, the archive $200 — either way the
   <b>Who Moved</b> card groups its rows into $1,000 zones, so one wall of owners is one row
