@@ -76,7 +76,12 @@ Backend is a **thin read-only layer over `processed/`** — no database, no writ
    genuine missing slot carry a gray `gap` marker; cross-filled bars carry an amber
    `cross-filled` marker; days in the top decile of large-trade notional carry a purple
    `large` arrow (threshold shown in the status bar, recomputed per loaded range).
-   Hover shows the full OHLC + source breakdown.
+   Hover shows the full OHLC + source breakdown. A **click on the chart turns that
+   readout off** (another click turns it back on): the box is as tall as the breakdown
+   table, so on a small chart it covers the candles it describes. The choice is
+   remembered (localStorage `vsa_hover_info_v1`), and the status strip says so while it
+   is off. Mouse only — on a touch screen a tap is the gesture that raises the
+   crosshair, so it is left alone.
 2. **Volume panel** — driven by the **Volume Source selector** (top right):
    | Option | What it renders | Confidence |
    |---|---|---|

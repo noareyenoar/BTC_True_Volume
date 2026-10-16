@@ -1,7 +1,10 @@
 /* TA+VSA Visualizer — frontend logic.
  * Candlesticks + multi-source volume histogram over the audited proxy stack.
  * The hover tooltip always shows the FULL breakdown; the selector only changes
- * what the volume panel renders. No external network calls at render time. */
+ * what the volume panel renders. A click on the chart switches the readout off
+ * and back on (setHoverInfo below) — the box is as tall as the breakdown table,
+ * so on a small chart it covers the candles it is describing. No external
+ * network calls at render time. */
 
 "use strict";
 
@@ -91,6 +94,12 @@ const S = {
   // so the write and the read cannot drift apart.
   markersLarge: localStorage.getItem("vsa_markers_large_v2") === "1",
   markersFills: localStorage.getItem("vsa_markers_fills_v2") === "1",
+  // The hover readout opens ON -- the mouse is how this page is read -- and a
+  // click on the chart switches it off (another switches it back). Remembered,
+  // like the display switches above: the tooltip is as tall as the breakdown
+  // table, so a reader who wants the candles unobstructed should not have to
+  // click on every visit. Mouse-only, see the click handler below.
+  hoverInfo: localStorage.getItem("vsa_hover_info_v1") !== "0",
 };
 
 // The marker toggles, as built into index.html. `skey` is the S flag, `ls` the
@@ -782,13 +791,14 @@ async function refreshBreakdown() {
   } catch (e) { /* transient — next pan retries */ }
 }
 
-/* ---------------- tooltip ---------------- */
+/* ---------------- tooltip ----------------
+ * One renderer, two callers: the crosshair (a mouse move over a bar) and the
+ * click that switches the readout back ON -- a reader who just switched it on
+ * has not moved the mouse yet, so waiting for the next crosshair event would
+ * make the switch look inert.
+ */
 const tooltip = document.getElementById("tooltip");
-chart.subscribeCrosshairMove(param => {
-  if (!param.time || !param.point || !S.bars.length) { tooltip.style.display = "none"; return; }
-  const bar = param.seriesData.get(candleSeries);
-  if (!bar) { tooltip.style.display = "none"; return; }
-  const openTime = Math.round(bar.time) * 1000;
+function paintTooltip(openTime, ptx, pty) {
   const b = S.bars.find(x => x.open_time === openTime);
   if (!b) { tooltip.style.display = "none"; return; }
   const bd = S.breakdown.get(openTime);
@@ -828,15 +838,78 @@ chart.subscribeCrosshairMove(param => {
   tooltip.innerHTML = `<h3>${fmtTs(openTime, S.interval)} · ${mkt}${b.cross_filled ? " · cross-filled" : ""}${b.follows_gap ? " · follows gap" : ""}${b.live ? " · ⚠" : ""}</h3>
     <div class="ohlc"><span>O ${fmtNum(b.open, 4)}</span><span>H <b style="color:${UP}">${fmtNum(b.high, 4)}</b></span>
     <span>L <b style="color:${DOWN}">${fmtNum(b.low, 4)}</b></span><span>C ${fmtNum(b.close, 4)}</span></div>
-    <table>${rows.join("")}${etfTooltipRow(openTime)}${profileTooltipRow(param.point.y)}${costBasisTooltipRow(param.point.y)}</table>${liveNote}`;
+    <table>${rows.join("")}${etfTooltipRow(openTime)}${profileTooltipRow(pty)}${costBasisTooltipRow(pty)}</table>${liveNote}`;
   tooltip.style.display = "block";
   const pad = 14, tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
-  let x = param.point.x + pad, y = param.point.y + pad;
-  if (x + tw > window.innerWidth - 8) x = param.point.x - tw - pad;
-  if (y + th > window.innerHeight - 8) y = param.point.y - th - pad;
+  let x = ptx + pad, y = pty + pad;
+  if (x + tw > window.innerWidth - 8) x = ptx - tw - pad;
+  if (y + th > window.innerHeight - 8) y = pty - th - pad;
   tooltip.style.left = x + "px"; tooltip.style.top = y + "px";
+}
+/* The crosshair's own switch: the readout was clicked off, the cursor is not
+ * over a bar, or no bars are loaded. All three mean the same thing to the box --
+ * it must not be on screen. */
+chart.subscribeCrosshairMove(param => {
+  if (!S.hoverInfo || !param.time || !param.point || !S.bars.length) {
+    tooltip.style.display = "none"; return;
+  }
+  const bar = param.seriesData.get(candleSeries);
+  if (!bar) { tooltip.style.display = "none"; return; }
+  paintTooltip(Math.round(bar.time) * 1000, param.point.x, param.point.y);
 });
 chart.subscribeCrosshairMove(p => { if (!p.time) tooltip.style.display = "none"; });
+
+/* ---------------- hover readout on/off (a click on the chart) ----------------
+ * "Click" here means pressed and released in the same spot: panning the chart is
+ * a DRAG, and a drag must never be read as a switch. Mouse-only on purpose, the
+ * same call the pencil below makes -- on a touch screen a tap IS the gesture
+ * that raises the crosshair, so stealing it would take the readout away from the
+ * one input that has no hover to fall back on.
+ */
+const HOVER_CLICK_PX = 6, HOVER_CLICK_MS = 500;
+// A tap fires touchstart and only THEN mousedown/mouseup (synthesised), so the
+// touchstart cannot merely cancel a pending click -- it has to poison the
+// mousedown that is about to arrive. A second after the finger is a mouse again.
+const HOVER_TAP_MS = 1000;
+let hoverDown = null, lastTouch = 0;
+// Capture, both of them: the chart's own canvas sits under #chart and a pan
+// handler there could swallow the bubble on its way back up. Taking the pair in
+// the capture phase reads the gesture before anything below can.
+chartEl.addEventListener("mousedown", ev => {
+  const synthetic = lastTouch > 0 && Date.now() - lastTouch < HOVER_TAP_MS;
+  // button 0 only; while the pencil is armed the gesture belongs to it, not here
+  hoverDown = (ev.button === 0 && !pickState.active && !synthetic)
+    ? { x: ev.clientX, y: ev.clientY, t: Date.now() } : null;
+}, true);
+window.addEventListener("touchstart", () => { hoverDown = null; lastTouch = Date.now(); },
+  { capture: true, passive: true });
+window.addEventListener("mouseup", ev => {
+  const d = hoverDown;
+  hoverDown = null;
+  if (!d || ev.button !== 0 || pickState.active) return;
+  if (Math.abs(ev.clientX - d.x) > HOVER_CLICK_PX) return;
+  if (Math.abs(ev.clientY - d.y) > HOVER_CLICK_PX) return;
+  if (Date.now() - d.t > HOVER_CLICK_MS) return;   // a press-and-hold is not a click
+  setHoverInfo(!S.hoverInfo, ev);
+}, true);
+function setHoverInfo(on, ev) {
+  S.hoverInfo = on;
+  localStorage.setItem("vsa_hover_info_v1", on ? "1" : "0");
+  tooltip.style.display = "none";   // the box on screen belongs to the old setting
+  updateHoverStatus();
+  if (!on || !ev) return;
+  // Show the bar under the click straight away. The mouse has not moved, so no
+  // crosshair event is coming, and a switch whose only feedback arrives on the
+  // NEXT mouse move reads as broken. The x is clamped the way pickDateAt clamps
+  // -- a click past the loaded range must fall back to the edge, not throw.
+  const rect = chartEl.getBoundingClientRect();
+  const ts = chart.timeScale();
+  const w = Math.max(ts.width() - 1, 0);
+  const ptx = Math.min(Math.max(ev.clientX - rect.left, 0), w);
+  const pty = ev.clientY - rect.top;
+  const t = ts.coordinateToTime(ptx);
+  if (t !== null && t !== undefined) paintTooltip(Math.round(t * 1000), ptx, pty);
+}
 
 /* ---------------- status bar ---------------- */
 function updateStatus() {
@@ -858,12 +931,14 @@ function updateStatus() {
     <span id="status-profile"></span>
     <span id="status-cb"></span>
     <span id="status-etf"></span>
+    <span id="status-hover"></span>
     <span class="mkt-note">OHLC: spot → 2024-12-31, then futures UM → latest (refreshed before each session)</span>`;
   updateProfileStatus();   // the spans above were just replaced; refill them
   updateCostBasisStatus();
   updateEtfStatus();
   updateSourceStatus();
   updateLargeStatus();
+  updateHoverStatus();
 }
 
 /* The four spans above exist only inside the markup updateStatus() just wrote,
@@ -881,6 +956,17 @@ function updateSourceStatus() {
 function updateLargeStatus() {
   const el = document.getElementById("status-large");
   if (el) el.textContent = S.statusLarge;
+}
+/* The readout's own switch has to say where it is: with the box off, the page
+ * looks like the tooltip is broken rather than switched off, and the strip is
+ * the only place that can say otherwise without covering the chart. Printable
+ * from any caller -- the click path (setHoverInfo) and every updateStatus(). */
+function updateHoverStatus() {
+  const el = document.getElementById("status-hover");
+  if (el) {
+    el.innerHTML = S.hoverInfo ? ""
+      : '<span class="mkt-note">Hover readout off — click the chart to bring it back</span>';
+  }
 }
 
 /* ---------------- controls ---------------- */
@@ -1641,13 +1727,25 @@ function updateCostBasisStatus() {
   const flag = document.getElementById("cb-missing");
   if (flag) {
     const m = (d.available && d.missing) ? d.missing : null;
+    // WHICH store answered decides what "missing" means here. The weekly archive
+    // keeps one date a week, so its newest is a Sunday and any window ending
+    // later leaves a tail it cannot carry: those days are outside that store's
+    // grid, not data that failed to arrive, and the next Sunday anchor fills
+    // them. Naming only the days reads as a failed refresh -- on 2026-10-16 the
+    // reader saw "missing 12/10 – 16/10" and took it for exactly that.
+    const weekly = d.estimate_kind === "archive-pair";
     flag.hidden = !m;
     flag.textContent = m
       ? `missing ${fmtDay(m.from)}` + (m.from === m.to ? "" : ` – ${fmtDay(m.to)}`)
+        + (weekly ? ` · weekly store (newest ${fmtDay(d.as_of)})` : "")
       : "";
     flag.title = m
-      ? `no cost-basis curve is stored for these days yet — the window shown `
-        + `ends at the newest one (${fmtDay(d.as_of)})`
+      ? (weekly
+          ? `the weekly cost-basis store keeps one date a week and its newest is `
+            + `${fmtDay(d.as_of)} — the days named above sit past that curve, they did `
+            + `not fail to arrive, and the next Sunday anchor covers them`
+          : `no cost-basis curve is stored for these days yet — the window shown `
+            + `ends at the newest one (${fmtDay(d.as_of)})`)
       : "";
   }
   if (!d.available) {
