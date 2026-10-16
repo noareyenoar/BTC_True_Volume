@@ -3,7 +3,12 @@ name: cloud-refresh
 # Daily cloud run of the refresh + publish chain (the twin of
 # Z_BTCTrueVolumerefresh-and-publish.bat): refresh every feed to the latest
 # Binance Vision day, re-export the static site, verify, then push to branch
-# `main` for Pages. ~12:17 Asia/Bangkok (05:17 UTC). Also runs when this file
+# `main` for Pages. TWICE a day -- 07:07 and 20:37 Asia/Bangkok (00:07 / 13:37
+# UTC): the morning run has the page current before the day starts, and the
+# evening run lands after Binance Vision publishes the previous day (~16:30
+# Thai), which is the one that actually advances the newest daily bar. Both
+# minutes are deliberately off :00/:30 -- GitHub delays scheduled runs, and the
+# top of the hour is when the queue is longest. Also runs when this file
 # changes, and on demand (Actions -> Run workflow; tick `dry_run` to skip the
 # push). Needs no secrets (the chain is keyless; ETHERSCAN_API_KEY only
 # upgrades the ETH tx tier).
@@ -23,14 +28,15 @@ name: cloud-refresh
 #         NOT the multi-GB tape merged.parquet or ETH daily/, which the
 #         checkpoints skip on purpose).
 #
-# If both cache and release are empty, the refresh job stops with a warning
-# instead of running a partial pipeline. (One-time seed uploaded 2026-10-15;
-# from the first successful run on, the Actions cache carries the state
-# forward and the release is refreshed every Sunday as a fallback.)
+# If both cache and release are empty, the refresh job FAILS (red, so it is
+# noticed) instead of warning its way to a green no-op. (One-time seed uploaded
+# 2026-10-15; from the first successful run on, the Actions cache carries the
+# state forward and the release is refreshed every Sunday as a fallback.)
 
 on:
   schedule:
-    - cron: "17 5 * * *"
+    - cron: "7 0 * * *"     # 07:07 Asia/Bangkok
+    - cron: "37 13 * * *"   # 20:37 Asia/Bangkok, after Vision publishes
   workflow_dispatch:
     inputs:
       dry_run:
@@ -161,12 +167,18 @@ jobs:
           ls -l data_registry.yaml
 
       - name: pipeline state present?
+        # HARD FAIL, not a warning: every real step below is gated on
+        # `_state_ready`, so a warning here turns the whole job into a green
+        # no-op -- the 2026-10-15 runs 1 and 2 "succeeded" without refreshing,
+        # exporting or pushing anything. A red run is the only version of this
+        # state that someone notices.
         run: |
           if [ -f data_registry.yaml ] && [ -d Dataset_Fetcher/BTC_True_Volume/processed ]; then
             touch _state_ready
             echo "state present - the refresh will run"
           else
-            echo "::warning title=state not seeded::Pipeline state missing from both the Actions cache and the state-backup release; only the smoke gate ran. Seed it, then re-run."
+            echo "::error title=state not seeded::Pipeline state missing from both the Actions cache and the state-backup release. Restore the 'state-backup' release (or the newest state-* cache), then re-run."
+            exit 1
           fi
 
       - name: refresh feeds (incremental)
