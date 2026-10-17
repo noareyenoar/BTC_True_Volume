@@ -3,12 +3,15 @@ name: cloud-refresh
 # Daily cloud run of the refresh + publish chain (the twin of
 # Z_BTCTrueVolumerefresh-and-publish.bat): refresh every feed to the latest
 # Binance Vision day, re-export the static site, verify, then push to branch
-# `main` for Pages. TWICE a day -- 07:07 and 20:37 Asia/Bangkok (00:07 / 13:37
-# UTC): the morning run has the page current before the day starts, and the
-# evening run lands after Binance Vision publishes the previous day (~16:30
-# Thai), which is the one that actually advances the newest daily bar. Both
-# minutes are deliberately off :00/:30 -- GitHub delays scheduled runs, and the
-# top of the hour is when the queue is longest. Also runs when this file
+# `main` for Pages. TWICE a day -- 15:47 and 20:37 Asia/Bangkok (08:47 / 13:37
+# UTC). Vision publishes the previous day's daily zips at ~07:51-08:38 UTC
+# (14:51-15:38 Thai; sampled 2026-10-06..16, with occasional late days up to
+# 21:17 Thai), so the first slot sits just after the usual publish and the
+# second is the safety net for late-publish days. A 00:07 UTC morning run was
+# tried and never advanced the newest daily bar -- Vision had not published
+# yet. Both minutes are deliberately off :00/:30 -- GitHub delays scheduled
+# runs (observed ~4h late on 2026-10-16/17), and the top of the hour is when
+# the queue is longest. Also runs when this file
 # changes, and on demand (Actions -> Run workflow; tick `dry_run` to skip the
 # push). Needs no secrets (the chain is keyless; ETHERSCAN_API_KEY only
 # upgrades the ETH tx tier).
@@ -35,8 +38,8 @@ name: cloud-refresh
 
 on:
   schedule:
-    - cron: "7 0 * * *"     # 07:07 Asia/Bangkok
-    - cron: "37 13 * * *"   # 20:37 Asia/Bangkok, after Vision publishes
+    - cron: "47 8 * * *"    # 15:47 Asia/Bangkok, after Vision publishes (~14:51-15:38 Thai)
+    - cron: "37 13 * * *"   # 20:37 Asia/Bangkok, safety net for late-publish days
   workflow_dispatch:
     inputs:
       dry_run:
