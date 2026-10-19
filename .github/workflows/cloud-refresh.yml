@@ -36,6 +36,11 @@ name: cloud-refresh
 # noticed) instead of warning its way to a green no-op. (One-time seed uploaded
 # 2026-10-15; from the first successful run on, the Actions cache carries the
 # state forward and the release is refreshed every Sunday as a fallback.)
+#
+# verify_all tolerates an ETF-flow store trailing the bars by up to three
+# calendar days: it is session-dated (no weekend points) and upstream publishes
+# each session a day late, so a one-day rule failed every weekend (2026-10-19:
+# bars reached Saturday 18th while the chart still ended Thursday 16th).
 
 on:
   schedule:
