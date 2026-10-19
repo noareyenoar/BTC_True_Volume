@@ -673,8 +673,31 @@ function renderVolume() {
     chart.priceScale("").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
   }
   applyVolumeVisibility();
-  S.statusSource = sourceLabel(S.source) +
-    (data.length && data.every(d => d.value === null) ? " (no data in loaded range)" : "");
+  let status = sourceLabel(S.source);
+  if (data.length && data.every(d => d.value === null)) {
+    status += " (no data in loaded range)";
+  } else {
+    const meta = S.sourcesMeta.find(m => m.key === S.source);
+    const lastBar = S.bars.length ? S.bars[S.bars.length - 1].open_time : null;
+    if (meta && meta.available_to && lastBar && meta.available_to < lastBar) {
+      const days = Math.round((lastBar - meta.available_to) / 86400000);
+      status += ` — source ends ${fmtDay(new Date(meta.available_to).toISOString().slice(0, 10))}`
+        + ` (${days}d behind bars)`;
+    }
+    /* The settled-value series now has two providers; say when the tail came
+     * from the fallback, because the chart alone cannot distinguish them. */
+    if (S.source === "onchain_network_volume" && S.breakdown.size) {
+      let fb = 0;
+      for (const b of S.bars) {
+        const bd = S.breakdown.get(b.open_time);
+        if (bd && bd.onchain_volume_source === "checkonchain"
+            && bd.onchain_network_volume !== null
+            && bd.onchain_network_volume !== undefined) fb++;
+      }
+      if (fb) status += ` — ${fb} day${fb === 1 ? "" : "s"} from checkonchain fallback`;
+    }
+  }
+  S.statusSource = status;
   updateSourceStatus();
 }
 
@@ -779,6 +802,7 @@ async function refreshBreakdown() {
       S.breakdown.set(b.open_time, {
         tape_rollup_volume: src.tape_rollup_volume,
         onchain_network_volume: src.onchain_network_volume,
+        onchain_volume_source: src.onchain_network_volume_source,
         large_trade_notional: src.large_trade_notional,
         open_interest_delta: src.open_interest_delta,
         taker_buy: src.taker_buy_sell_split ? src.taker_buy_sell_split.buy : null,
@@ -819,6 +843,11 @@ function paintTooltip(openTime, ptx, pty) {
         : key === "large_trade_notional" ? fmtUsd(v)
         : key === "open_interest_delta" ? (v >= 0 ? "+" : "") + fmtUsd(Math.abs(v))
         : fmtNum(v);
+      /* Fallback days are a different provider (checkonchain) inside the same
+       * series; the reader must not mistake them for Blockchain.com values. */
+      if (val !== null && key === "onchain_network_volume"
+          && bd && bd.onchain_volume_source === "checkonchain")
+        val += ' <span class="src-meta">(checkonchain fallback)</span>';
     }
     const row = bd === undefined
       ? `<tr><td class="k src-label">${m.label}</td><td class="v loading">loading…</td></tr>`
@@ -992,7 +1021,12 @@ function populateSourceSelect() {
     const m = S.sourcesMeta.find(x => x.key === key);
     const o = document.createElement("option");
     o.value = key;
-    o.textContent = (key === "onchain_network_volume" ? "★ " : "") + m.label;
+    /* Say how far each source actually runs: a source that stops earlier than
+     * the bars is the difference between "no volume that day" and "this feed
+     * has not published it yet" -- the reader cannot see that from the chart. */
+    const to = m.available_to ? fmtDay(new Date(m.available_to).toISOString().slice(0, 10)) : "";
+    o.textContent = (key === "onchain_network_volume" ? "★ " : "") + m.label
+      + (to ? ` — to ${to}` : "");
     sel.appendChild(o);
   }
   if (present.has(current)) sel.value = current; else sel.value = "onchain_network_volume";
@@ -2460,15 +2494,58 @@ document.getElementById("holder-panel").addEventListener("toggle", () => {
 });
 
 /* ---------------- boot ---------------- */
+/* A tab kept open across a publish must not keep showing the old export: the
+ * manifest is fetched once at boot, so poll it (cache-busted -- Pages serves it
+ * with max-age=600) and offer a reload when the publish moves.  Not an
+ * automatic reload: yanking a chart the reader is examining is worse than a
+ * one-click chip. */
+function watchForNewManifest(bootGenerated) {
+  setInterval(async () => {
+    try {
+      const r = await fetch("manifest.json?ts=" + Date.now(), { cache: "no-store" });
+      if (!r.ok) return;
+      const m = await r.json();
+      if (m.generated_utc && m.generated_utc !== bootGenerated) showNewDataChip(m);
+    } catch (e) { /* offline -- the next tick retries */ }
+  }, 5 * 60 * 1000);
+}
+function showNewDataChip(m) {
+  const note = document.getElementById("data-note");
+  if (!note || document.getElementById("data-new-chip")) return;
+  const chip = document.createElement("span");
+  chip.id = "data-new-chip";
+  chip.className = "vintage-warn";
+  chip.style.cursor = "pointer";
+  chip.textContent = "New data available — click to reload";
+  chip.title = "Data through " + fmtDay(m.data_version);
+  chip.onclick = () => location.reload();
+  note.appendChild(document.createTextNode(" "));
+  note.appendChild(chip);
+}
 (async function boot() {
   try {
-    try { STATIC = await loadJSONFile("manifest.json"); }
+    try { STATIC = await loadJSONFile("manifest.json?ts=" + Date.now()); }
     catch (e) { STATIC = null; }        // no manifest -> local server mode
-    if (STATIC && STATIC.data_version)
-      document.getElementById("data-note").textContent =
+    if (STATIC && STATIC.data_version) {
+      const note = document.getElementById("data-note");
+      note.textContent =
         "Data through " + fmtDay(STATIC.data_version) + " — plus live today's candles (price only, Binance API). " +
         "True volume for today arrives with the next Vision publish (~24 h lag, usually by ~16:30 UTC+8 the next day); " +
         "re-open this page after the daily refresh+publish for full data.";
+      if (STATIC.generated_utc) {
+        const ageH = Math.max(0, (Date.now() - Date.parse(STATIC.generated_utc)) / 36e5);
+        const fresh = document.createElement("span");
+        if (ageH >= 36) {
+          fresh.className = "vintage-warn";
+          fresh.textContent = ` — data is ${Math.round(ageH / 24)} days old`;
+        } else {
+          fresh.className = "mkt-note";
+          fresh.textContent = ` — updated ${Math.round(ageH)} h ago`;
+        }
+        note.appendChild(fresh);
+        watchForNewManifest(STATIC.generated_utc);
+      }
+    }
     const sym = await api("/api/symbols");
     S.audited = sym.audited;
     // The interval on entry is the API's, not a literal in this file: daily bars
