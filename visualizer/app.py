@@ -292,12 +292,21 @@ def volume_breakdown(symbol: str, interval: str, start: Optional[int] = None,
     taker_buy = bars["taker_buy_base_vol"].fillna(0.0)
     taker_sell = (bars["volume"] - taker_buy).clip(lower=0.0)
 
+    # BTC settled value: the build_final union (Blockchain.com where present,
+    # checkonchain transfer volume where it is not).  Older final frames lack
+    # the union column, so fall back to the primary one.
+    onch_col = ("net_settled_volume_usd"
+                if "net_settled_volume_usd" in aligned.columns
+                else "net_estimated_tx_volume_usd")
+    onch_src_col = ("net_settled_volume_source"
+                    if "net_settled_volume_source" in aligned.columns else None)
+
     recs = []
     for i, r in enumerate(bars.itertuples(index=False)):
         srcs = {
             "exchange_volume": r.volume,
             "tape_rollup_volume": aligned["exch_combined_volume"].iloc[i],
-            "onchain_network_volume": (aligned["net_estimated_tx_volume_usd"].iloc[i]
+            "onchain_network_volume": (aligned[onch_col].iloc[i]
                                        if base == "BTC" else aligned["net_tx_count"].iloc[i]),
             "taker_buy_sell_split": {"buy": float(taker_buy.iloc[i]),
                                      "sell": float(taker_sell.iloc[i])},
@@ -309,6 +318,9 @@ def volume_breakdown(symbol: str, interval: str, start: Optional[int] = None,
         }
         if lt_aligned is not None:
             srcs["large_trade_notional"] = lt_aligned["large_notional_usd"].iloc[i]
+        if base == "BTC" and onch_src_col:
+            prov = aligned[onch_src_col].iloc[i]
+            srcs["onchain_network_volume_source"] = None if pd.isna(prov) else prov
         recs.append({"open_time": int(r.open_time), "sources": srcs})
 
     specs = _source_specs(symbol)
@@ -316,12 +328,14 @@ def volume_breakdown(symbol: str, interval: str, start: Optional[int] = None,
     for s in specs:
         key = s["key"]
         vals = [b["sources"][key] for b in recs if key in b["sources"]]
-        present = [b for b, v in zip(recs, vals) if v is not None]
+        present = [b for b, v in zip(recs, vals) if pd.notna(v)]
         s["available_from"] = present[0]["open_time"] if present else None
         s["available_to"] = present[-1]["open_time"] if present else None
     notes = ["daily-resolution sources are labeled 'daily, forward-filled' on intraday bars",
              "onchain_network_volume: BTC = settled-value USD proxy (includes non-trading "
-             "transfers); ETH = transaction count",
+             "transfers); ETH = transaction count. BTC falls back to checkonchain transfer "
+             "volume on days Blockchain.com has not published; per-bar provenance is in "
+             "sources.onchain_network_volume_source",
              "open_interest_delta on intraday bars is attached to the day's first bar "
              "(OI is daily granularity)"]
     return {"symbol": symbol, "interval": interval, "sources": specs,

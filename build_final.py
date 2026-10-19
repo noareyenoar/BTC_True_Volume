@@ -73,6 +73,41 @@ def _load_block(path: Path) -> Optional[pd.DataFrame]:
     return df.sort_index()
 
 
+def _merge_settled_fallback(df_n: pd.DataFrame, asset: str) -> pd.DataFrame:
+    """Fill Blockchain.com's settled-value holes with checkonchain transfer volume.
+
+    The primary column is kept untouched; ``net_settled_volume_usd`` is the
+    per-date union and ``net_settled_volume_source`` names the provider for
+    each day, so a fallback day is auditable rather than a silent splice.
+    """
+    if "net_estimated_tx_volume_usd" not in df_n.columns:
+        return df_n
+    primary = pd.to_numeric(df_n["net_estimated_tx_volume_usd"], errors="coerce")
+    settled = primary.copy()
+    source = pd.Series(np.where(primary.notna(), "blockchain_com", None),
+                       index=df_n.index, dtype="object")
+    fb_path = NET_SUBDIR / asset / "transfer_volume_usd_checkonchain.parquet"
+    if fb_path.exists():
+        fb = pd.read_parquet(fb_path)
+        fb["date"] = pd.to_datetime(fb["date"], utc=True).dt.normalize()
+        fb = (fb.drop_duplicates("date", keep="last").set_index("date")
+                ["transfer_volume_usd"].astype(float).sort_index())
+        fill = fb.reindex(df_n.index)
+        need = settled.isna() & fill.notna()
+        settled = settled.where(~need, fill)
+        source = source.where(~need, "checkonchain")
+        logger.info("settled fallback: %d primary days, %d filled from checkonchain "
+                    "(%s -> %s)", int(primary.notna().sum()), int(need.sum()),
+                    fb.index.min().date() if len(fb) else "-",
+                    fb.index.max().date() if len(fb) else "-")
+    else:
+        logger.warning("settled fallback: %s missing", fb_path)
+    df_n = df_n.copy()
+    df_n["net_settled_volume_usd"] = settled
+    df_n["net_settled_volume_source"] = source
+    return df_n
+
+
 def _onch_block_btc() -> pd.DataFrame:
     """BTC on-chain block from the local onchain_dataset (daily .last())."""
     onch = pd.read_parquet(ONCHAIN_LOCAL)
@@ -177,6 +212,11 @@ def build(asset: str) -> PhaseResult:
     full = pd.date_range(df.index.min(), df.index.max(), freq="1D", tz="UTC")
     df = df.reindex(full)
     df.index.name = "date"
+
+    # Settled-value union AFTER the calendar reindex: the net block only reaches
+    # Blockchain.com's last published day, while the checkonchain fallback can
+    # be fresher than every other block.
+    df = _merge_settled_fallback(df, asset)
 
     # --- sanity -------------------------------------------------------------
     numeric = df.select_dtypes("number")

@@ -75,6 +75,7 @@ DS = {
     "deribit": "deribit_public_api",
     "onchain_local": "onchain_dataset_local",
     "checkonchain_github": "checkonchain_public_github_pages",
+    "checkonchain_charts": "checkonchain_charts_cdn",
     "checkonchain_bitview": "checkonchain_bitview_series_api",
     "crossfill": "dataset_1d_symbols_crossfill",
     "binance_rest_top_trader": "binance_rest_top_trader",

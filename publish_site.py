@@ -176,7 +176,7 @@ def _sync_with_remote() -> None:
     _git("reset", "--hard", REMOTE_REF)
 
 
-def publish(no_push: bool = False) -> None:
+def publish(no_push: bool = False, allow_rollback: bool = False) -> None:
     # site/ has to exist before the git calls now: the sync below must run BEFORE
     # the export (a reset after the export would throw the fresh export away), and
     # build_site() is what used to create this directory.
@@ -199,6 +199,18 @@ def publish(no_push: bool = False) -> None:
 
     manifest = export_static_site.build_site()
     data_version = manifest["data_version"]
+
+    # Monotonicity guard: a publish must never move the site BACK to an older
+    # Vision day.  The sync above adopts origin/<BRANCH> first, but build_site()
+    # then overwrites that tree from local data — so a stale cache or a
+    # refresh-less run could otherwise publish yesterday's export over today's.
+    # REMOTE_REF still points at the remote tip here (the reset moved HEAD only).
+    remote_ver = _data_version(REMOTE_REF) if _rev(REMOTE_REF) else ""
+    if remote_ver and data_version and data_version < remote_ver and not allow_rollback:
+        logger.error("refusing to publish data through %s: origin/%s already carries "
+                     "data through %s. Refresh first, or pass --allow-rollback if the "
+                     "regression is intentional.", data_version, BRANCH, remote_ver)
+        raise SystemExit(2)
 
     _git("add", "-A")
     changed = _git("status", "--porcelain", check=False).stdout.strip()
@@ -234,4 +246,5 @@ def publish(no_push: bool = False) -> None:
 
 
 if __name__ == "__main__":
-    publish(no_push="--no-push" in sys.argv)
+    publish(no_push="--no-push" in sys.argv,
+            allow_rollback="--allow-rollback" in sys.argv)

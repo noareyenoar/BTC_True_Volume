@@ -20,7 +20,9 @@ Output: processed/onchain/network_metrics/BTC/merged.parquet (+ _meta.json)
 from __future__ import annotations
 
 import logging
+import os
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -28,13 +30,17 @@ import numpy as np
 import pandas as pd
 
 try:
-    from .common import (PROCESSED, DS, PhaseResult, RateLimitedClient,
+    from .common import (PROCESSED, RAW, DS, PhaseResult, RateLimitedClient,
+                         atomic_write_json, atomic_write_parquet,
                          cache_json, load_cached_json, logger,
                          write_parquet_with_meta)
+    from .fetch_checkonchain_urpd import decode_arr, parse_traces
 except ImportError:  # direct script execution
-    from common import (PROCESSED, DS, PhaseResult, RateLimitedClient,
+    from common import (PROCESSED, RAW, DS, PhaseResult, RateLimitedClient,
+                        atomic_write_json, atomic_write_parquet,
                         cache_json, load_cached_json, logger,
                         write_parquet_with_meta)
+    from fetch_checkonchain_urpd import decode_arr, parse_traces
 
 logger = logging.getLogger("tvp.phase1_btc")
 
@@ -50,6 +56,97 @@ CHARTS = {
 }
 # charts that were never daily from the start / may return minute period
 _MINUTE_CHARTS = {"mempool-size"}
+
+# ---------------------------------------------------------------------------
+# Fallback: on-chain settled value from checkonchain
+# ---------------------------------------------------------------------------
+# Blockchain.com's chart API freezes for days at a time (measured 2026-10-15:
+# every chart stopped at 15/10 while Vision was current through 17/10).  The
+# checkonchain "Bitcoin Transfer Volume [USD]" chart is the same economic
+# settled-value family, keyless, and current to the day -- it is a self-
+# contained Plotly page on the CDN the URPD collector already reads, so the
+# decode path is the one proven in fetch_checkonchain_urpd.
+CC_TRANSFER_CHART = ("https://charts-cdn.checkonchain.com/btconchain/adoption/"
+                     "transfer_volumes_usd/transfer_volumes_usd_light.html")
+CC_TRANSFER_TRACE = "Transfer Volume [USD]"
+CC_CACHE_REL = Path("checkonchain") / "transfer_volumes_usd_light.html"
+# Value guard: daily network settled value is ~$1e9; anything outside this
+# band means a mis-decoded trace or a changed chart, not a market move.
+CC_VALUE_MIN, CC_VALUE_MAX = 1e7, 1e11
+
+
+def _load_cc_html(client: RateLimitedClient, force_refetch: bool) -> Optional[str]:
+    """Fetch (or reuse) the checkonchain chart page.  Cache is the fallback."""
+    cache_path = RAW / CC_CACHE_REL
+    if not force_refetch and cache_path.exists():
+        return cache_path.read_text(encoding="utf-8")
+    resp = client.get(CC_TRANSFER_CHART)
+    if resp is not None and resp.status_code == 200 and len(resp.text) > 10_000:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = cache_path.with_name(cache_path.name + ".tmp")
+        tmp.write_text(resp.text, encoding="utf-8")
+        os.replace(tmp, cache_path)
+        return resp.text
+    if cache_path.exists():
+        logger.warning("checkonchain transfer volume: fetch failed, using cached HTML")
+        return cache_path.read_text(encoding="utf-8")
+    return None
+
+
+def fetch_transfer_volume_fallback(
+        client: RateLimitedClient,
+        force_refetch: bool = False) -> Optional[pd.DataFrame]:
+    """Daily BTC transfer volume [USD] from checkonchain -> date/value frame.
+
+    The chart's last point is the current (partial) UTC day; it is dropped so
+    the fallback only ever answers with complete days.  The trace name is
+    matched exactly -- the same page carries Price and Exchange Flows traces.
+    """
+    html = _load_cc_html(client, force_refetch)
+    if html is None:
+        logger.warning("checkonchain transfer volume: no page and no cache")
+        return None
+    traces = parse_traces(html)
+    trace = next((t for t in traces if t.get("name") == CC_TRANSFER_TRACE), None)
+    if trace is None:
+        logger.warning("checkonchain transfer volume: trace %r not found (have %r)",
+                       CC_TRANSFER_TRACE, [t.get("name") for t in traces])
+        return None
+    x = trace.get("x") or []
+    y = decode_arr(trace.get("y"))
+    if y is None:
+        logger.warning("checkonchain transfer volume: y not decodable")
+        return None
+    if len(x) != len(y):
+        logger.warning("checkonchain transfer volume: x/y length mismatch %d/%d",
+                       len(x), len(y))
+        return None
+    df = pd.DataFrame({
+        "date": pd.to_datetime(pd.Series(x), utc=True).dt.normalize(),
+        "transfer_volume_usd": pd.to_numeric(pd.Series(y), errors="coerce"),
+    })
+    df = (df.dropna(subset=["date", "transfer_volume_usd"])
+            .drop_duplicates("date", keep="last")
+            .sort_values("date"))
+    today = pd.Timestamp.now(tz="UTC").normalize()
+    df = df[(df["date"] < today) & (df["transfer_volume_usd"] > 0)]  # complete days only
+    if len(df) < 1000:
+        logger.warning("checkonchain transfer volume: only %d usable days", len(df))
+        return None
+    # Guard the recent window, not 2009 (when settled value was legitimately
+    # far below $1e7): a mis-decoded trace or a changed chart shows up here.
+    recent = df[df["date"] >= df["date"].max() - pd.Timedelta(days=800)]
+    valid = recent["transfer_volume_usd"].between(CC_VALUE_MIN, CC_VALUE_MAX)
+    if valid.mean() < 0.95:
+        logger.warning("checkonchain transfer volume: %.1f%% of the last 800 days "
+                       "outside guard", 100 * (1 - valid.mean()))
+        return None
+    df = df[df["transfer_volume_usd"] <= CC_VALUE_MAX].reset_index(drop=True)
+    df["source"] = "checkonchain"
+    df["fetched_utc"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    logger.info("checkonchain transfer volume: %d days, %s -> %s",
+                len(df), df["date"].min().date(), df["date"].max().date())
+    return df
 
 
 def _fetch_chart(client: RateLimitedClient, chart: str,
@@ -190,6 +287,40 @@ def run(force_refetch: bool = False) -> PhaseResult:
         ],
     }
     write_parquet_with_meta(df, out_path, meta, DS["blockchain_com"], "High")
+
+    # Fallback store: checkonchain settled value, kept beside (not inside) the
+    # primary so build_final can fill only the days Blockchain.com missed.
+    outputs = [out_path]
+    try:
+        fb = fetch_transfer_volume_fallback(client, force_refetch)
+    except Exception as exc:  # noqa: BLE001 — a fallback must not kill the phase
+        fb = None
+        notes.append(f"checkonchain transfer volume fallback: {type(exc).__name__}: {exc}")
+        logger.warning("checkonchain transfer volume failed: %s", exc)
+    if fb is not None and len(fb):
+        fb_path = out_path.parent / "transfer_volume_usd_checkonchain.parquet"
+        atomic_write_parquet(fb, fb_path, {
+            "data_source": DS["checkonchain_charts"],
+            "confidence_tier": "High",
+            "dataset_id": "checkonchain_transfer_volume_usd_btc_daily",
+        })
+        atomic_write_json({
+            "dataset_id": "checkonchain_transfer_volume_usd_btc_daily",
+            "description": "Bitcoin transfer volume [USD] from the checkonchain "
+                           "transfer_volumes_usd chart — fallback for Blockchain.com's "
+                           "estimated-transaction-volume-usd when that chart is frozen",
+            "source_url": CC_TRANSFER_CHART,
+            "trace": CC_TRANSFER_TRACE,
+            "coverage": [str(fb["date"].min().date()), str(fb["date"].max().date())],
+            "row_count": int(len(fb)),
+            "fetched_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "data_source": DS["checkonchain_charts"],
+            "confidence_tier": "High",
+        }, fb_path.with_name("transfer_volume_usd_checkonchain_meta.json"))
+        outputs.append(fb_path)
+    else:
+        notes.append("checkonchain transfer volume fallback: unavailable")
+
     return PhaseResult(
         phase="Phase 1", name="Network-level on-chain volume (Blockchain.com)", asset="BTC",
         status="COMPLETE",
@@ -201,7 +332,7 @@ def run(force_refetch: bool = False) -> PhaseResult:
             "mempool-size minute granularity — daily mean; dropped if impractical",
             *(notes or ["none"]),
         ],
-        outputs=[out_path])
+        outputs=outputs)
 
 
 def main() -> None:
