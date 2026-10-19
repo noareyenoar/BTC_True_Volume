@@ -834,7 +834,13 @@ def verify_etf_flows() -> List[str]:
     if refs:
         vision = max(refs)
         lag = (datetime.fromisoformat(last) - datetime.fromisoformat(vision)).days
-        if lag < -1:
+        # The ETF store is session-dated (no weekend points) while Vision bars
+        # include weekends, and the upstream flow chart routinely trails the
+        # session by a day.  A 1-day rule fails every weekend: on 2026-10-19 the
+        # bars reached Saturday 18th while the chart (Thursday 16th) had not yet
+        # published Friday's session.  Three calendar days covers a weekend plus
+        # that publication lag; a genuine stall still trips it.
+        if lag < -3:
             errs.append(f"etf_flows: the series ends {last}, {abs(lag)} day(s) BEHIND the "
                         f"newest Vision daily bar ({vision}) — it stopped updating")
         elif lag > 4:
