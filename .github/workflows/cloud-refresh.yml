@@ -99,7 +99,16 @@ jobs:
           check "checkonchain cdn" "https://charts-cdn.checkonchain.com/btconchain/etfs/etf_flowsvsprice/etf_flowsvsprice_light.html"
           check "checkonchain transfer volume" "https://charts-cdn.checkonchain.com/btconchain/adoption/transfer_volumes_usd/transfer_volumes_usd_light.html"
           check "checkonchain web" "https://charts.checkonchain.com/"
-          check "github tree"      "https://api.github.com/repos/checkmatey/checkonchain.com/git/trees/main"
+          # The tree API is a secondary source for the URPD collector (the CDN
+          # index and our raw cache cover it), and unauthenticated calls are
+          # routinely rate-limited on shared runner IPs -- a 403 here must not
+          # block the refresh.  Authenticate with the workflow token, and treat
+          # 403 as "degraded, proceed" rather than a failed upstream.
+          tree_code=$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 30 \
+                      -H "Authorization: Bearer ${{ github.token }}" \
+                      "https://api.github.com/repos/checkmatey/checkonchain.com/git/trees/main" || echo 000)
+          printf '%s  %s\n' "$tree_code" "github tree"
+          case "$tree_code" in 2*|3*|403) ;; *) fail=1 ;; esac
           check "github raw"       "https://raw.githubusercontent.com/checkmatey/checkonchain.com/main/README.md"
           check "bitview"          "https://bitview.space/api/series/cost-basis/all/$BD?bucket=lin200"
           if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
