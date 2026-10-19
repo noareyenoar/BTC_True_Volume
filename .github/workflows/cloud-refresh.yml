@@ -3,15 +3,16 @@ name: cloud-refresh
 # Daily cloud run of the refresh + publish chain (the twin of
 # Z_BTCTrueVolumerefresh-and-publish.bat): refresh every feed to the latest
 # Binance Vision day, re-export the static site, verify, then push to branch
-# `main` for Pages. TWICE a day -- 15:47 and 20:37 Asia/Bangkok (08:47 / 13:37
-# UTC). Vision publishes the previous day's daily zips at ~07:51-08:38 UTC
-# (14:51-15:38 Thai; sampled 2026-10-06..16, with occasional late days up to
-# 21:17 Thai), so the first slot sits just after the usual publish and the
-# second is the safety net for late-publish days. A 00:07 UTC morning run was
+# `main` for Pages. FOUR attempts a day -- 15:47, 17:17, 20:37 and 22:17
+# Asia/Bangkok (08:47 / 10:17 / 13:37 / 15:17 UTC). Vision publishes the
+# previous day's daily zips at ~07:51-09:43 UTC (14:51-17:43 Thai, with
+# occasional late days up to 21:17 Thai), so the first slot sits just after
+# the usual publish and the rest are safety nets. A 00:07 UTC morning run was
 # tried and never advanced the newest daily bar -- Vision had not published
-# yet. Both minutes are deliberately off :00/:30 -- GitHub delays scheduled
-# runs (observed ~4h late on 2026-10-16/17), and the top of the hour is when
-# the queue is longest. Also runs when this file
+# yet. GitHub's scheduler fires hours late and sometimes drops a slot outright
+# (both 2026-10-19 slots were lost), so redundant attempts are the no-secret
+# defence; every run is idempotent. Minutes are deliberately off :00/:30 --
+# the top of the hour is when the queue is longest. Also runs when this file
 # changes, and on demand (Actions -> Run workflow; tick `dry_run` to skip the
 # push). Needs no secrets (the chain is keyless; ETHERSCAN_API_KEY only
 # upgrades the ETH tx tier).
@@ -38,8 +39,10 @@ name: cloud-refresh
 
 on:
   schedule:
-    - cron: "47 8 * * *"    # 15:47 Asia/Bangkok, after Vision publishes (~14:51-15:38 Thai)
+    - cron: "47 8 * * *"    # 15:47 Asia/Bangkok, after Vision's usual publish
+    - cron: "17 10 * * *"   # 17:17 Asia/Bangkok, retry (GitHub drops/late-fires events)
     - cron: "37 13 * * *"   # 20:37 Asia/Bangkok, safety net for late-publish days
+    - cron: "17 15 * * *"   # 22:17 Asia/Bangkok, late-publish catch-all
   workflow_dispatch:
     inputs:
       dry_run:
@@ -89,6 +92,7 @@ jobs:
           check "coinmetrics"      "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=PriceUSD&page_size=1"
           check "blockchain.info"  "https://api.blockchain.info/charts/market-price?timespan=1days&format=json"
           check "checkonchain cdn" "https://charts-cdn.checkonchain.com/btconchain/etfs/etf_flowsvsprice/etf_flowsvsprice_light.html"
+          check "checkonchain transfer volume" "https://charts-cdn.checkonchain.com/btconchain/adoption/transfer_volumes_usd/transfer_volumes_usd_light.html"
           check "checkonchain web" "https://charts.checkonchain.com/"
           check "github tree"      "https://api.github.com/repos/checkmatey/checkonchain.com/git/trees/main"
           check "github raw"       "https://raw.githubusercontent.com/checkmatey/checkonchain.com/main/README.md"
@@ -195,6 +199,29 @@ jobs:
         if: hashFiles('_state_ready') != ''
         working-directory: Dataset_Fetcher/BTC_True_Volume
         run: python publish_site.py --no-push
+
+      # A run that fetches nothing exits green with an unchanged data_version --
+      # which looks identical to "Vision has not published yet".  When Vision
+      # HAS published the previous day (1h zips drive the newest resampled 1d
+      # bar), the export must contain it; otherwise this run is red before the
+      # push, instead of silently leaving the page a day behind.
+      - name: freshness guard (a published Vision day must be exported)
+        if: hashFiles('_state_ready') != ''
+        run: |
+          set -u
+          D=$(date -u -d 'yesterday' +%F)
+          URL="https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1h/BTCUSDT-1h-$D.zip"
+          code=$(curl -s -o /dev/null -w '%{http_code}' -I -L --max-time 30 "$URL" || echo 000)
+          if [ "$code" != "200" ]; then
+            echo "Vision $D is not published yet (HTTP $code) — nothing to require"
+            exit 0
+          fi
+          got=$(python -c "import json;print(json.load(open('Dataset_Fetcher/BTC_True_Volume/site/manifest.json'))['data_version'])")
+          echo "Vision has $D; export data_version=$got"
+          if [[ "$got" < "$D" ]]; then
+            echo "::error::export is behind Vision: data_version=$got but $D is published"
+            exit 1
+          fi
 
       # ONE COMMAND PER STEP, named, on purpose: a red verify step whose log
       # sits behind authentication cannot say which of the four failed, and the
