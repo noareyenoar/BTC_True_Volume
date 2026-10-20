@@ -30,6 +30,32 @@
       </button>
     </div>
     <div class="profile-wrap">
+      <span class="ctl-label">Spot L2 heat</span>
+      <div id="spot-heat-window" class="btn-group"
+           title="Window of daily Binance spot L2 snapshots (one snapshot per PC refresh, not continuous)"></div>
+      <span class="heat-scale spot" title="exact-price resting bid/ask notional"></span>
+      <button id="spot-heat-eye" class="eye" type="button" aria-pressed="true">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <path d="M1 8C3.2 4.2 5.5 2.6 8 2.6S12.8 4.2 15 8c-2.2 3.8-4.5 5.4-7 5.4S3.2 11.8 1 8Z"/>
+          <circle cx="8" cy="8" r="2.3"/>
+          <line class="slash" x1="2.4" y1="13.6" x2="13.6" y2="2.4"/>
+        </svg>
+      </button>
+    </div>
+    <div class="profile-wrap">
+      <span class="ctl-label">Futures depth</span>
+      <div id="depth-heat-window" class="btn-group"
+           title="Window of Binance Vision futures bookDepth, 10-minute bins of ±0.2/1/2/3/4/5% distance bands"></div>
+      <span class="heat-scale depth" title="resting depth at distance bands, mapped to price by each bin's mid"></span>
+      <button id="depth-heat-eye" class="eye" type="button" aria-pressed="true">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <path d="M1 8C3.2 4.2 5.5 2.6 8 2.6S12.8 4.2 15 8c-2.2 3.8-4.5 5.4-7 5.4S3.2 11.8 1 8Z"/>
+          <circle cx="8" cy="8" r="2.3"/>
+          <line class="slash" x1="2.4" y1="13.6" x2="13.6" y2="2.4"/>
+        </svg>
+      </button>
+    </div>
+    <div class="profile-wrap">
       <span class="ctl-label">Cost-basis window</span>
       <div id="cb-window" class="btn-group" title="How far back the cost-basis change is measured — independent of the profile window above, because it answers a different question (on-chain supply that changed hands, not traded volume)"></div>
       <!-- Any two dates, subtracted from the supply curves stored for them (the

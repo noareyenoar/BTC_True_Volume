@@ -53,6 +53,18 @@ select, .btn-group button {
 .eye .slash { display: none; }
 .eye.off { color: var(--muted); }
 .eye.off .slash { display: inline; }
+/* Heat legends: the two layers use different ramps and different units, so
+   each carries its own swatch beside its eye. */
+.heat-scale {
+  display: inline-block; width: 54px; height: 8px;
+  border: 1px solid var(--border); border-radius: 2px;
+}
+.heat-scale.spot {
+  background: linear-gradient(90deg,#1c1230,#5a2a7a,#9b3d8f,#d6564a,#ffb03a);
+}
+.heat-scale.depth {
+  background: linear-gradient(90deg,#0c1e2a,#10465a,#167e8c,#40beb4);
+}
 /* Pencil: arms the drag-pick for the cost-basis window. Same stroke treatment
    as the eye (one icon grammar); lit while the chart is a selection surface. */
 .pencil { line-height: 0; }

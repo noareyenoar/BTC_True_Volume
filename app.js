@@ -192,7 +192,7 @@ async function loadJSONFile(path) {
   const r = await fetch(path);
   if (!r.ok) throw new Error(`${path} -> HTTP ${r.status}`);
   let text;
-  if (path.endsWith(".gz")) {
+  if (path.split("?")[0].endsWith(".gz")) {
     if (typeof DecompressionStream === "undefined")
       throw new Error(`${path}: browser lacks DecompressionStream — update to a modern browser`);
     const ds = new DecompressionStream("gzip");
@@ -262,6 +262,14 @@ async function api(path) {
     const ef = STATIC.files.etf;
     if (!ef) throw new Error("this export has no ETF flows — re-publish the site");
     return loadJSONFile(ef[sym]);
+  }
+  if (what === "orderbook_spot" || what === "orderbook_depth") {
+    const layer = what === "orderbook_spot" ? "spot" : "depth";
+    const ob = STATIC.files.orderbook;
+    const win = q.window || (layer === "spot" ? "90d" : "30d");
+    const path = ob && ob[layer] && ob[layer][sym + "_" + win];
+    if (!path) throw new Error("this export has no order-book heat — re-publish the site");
+    return loadJSONFile(path + "?v=" + encodeURIComponent(STATIC.generated_utc || ""));
   }
   if (what === "volume_profile") {
     const pf = STATIC.files.profile;
@@ -413,10 +421,16 @@ function drawProfile(target) {
   // Two independent payloads share this one primitive. Neither may take the
   // other down with it: if the profile fails to load, the cost-basis layer
   // still has to paint, and vice versa.
-  if (!hasProfile && !hasCb) { costBasisState.drawn = null; return; }
+  const hasHeat = heatHasData();
+  if (!hasProfile && !hasCb && !hasHeat) { costBasisState.drawn = null; return; }
   target.useMediaCoordinateSpace(({ context: ctx, mediaSize }) => {
     const right = mediaSize.width, H = mediaSize.height;
     const maxLen = right * 0.34;              // never swamp the candles
+
+    // Order-book depth heat sits behind everything else (the most backward
+    // layer of the pane), and before the returns below so it paints even when
+    // the profile and cost basis are hidden or failed.
+    drawHeat(ctx, right, H);
 
     // On-chain URPD layer: cost-basis past vs now and the change between them,
     // or — when cost basis cannot cover the symbol (ETH; URPD is BTC-UTXO-only)
@@ -606,6 +620,358 @@ function drawCostBasis(ctx, right, H, maxLen) {
     }
   }
 }
+/* ---------------- order-book depth heat ----------------
+ * Two daily-collected layers drawn on this same canvas behind the candles:
+ *   spot  — Binance spot L2 snapshots, exact price buckets, one column/day
+ *   depth — Vision futures bookDepth, 10-minute bins of distance bands
+ * The source payloads are sparse and in their own units; grids rasterize them
+ * onto the loaded bars once per (symbol, interval, window), so panning and
+ * zooming only iterate the visible bars.
+ */
+const SPOT_HEAT_WINDOWS = ["30d", "90d", "1y"];
+const DEPTH_HEAT_WINDOWS = ["1d", "7d", "30d"];
+const HEAT_DEPTH_BUCKET_USD = { BTCUSDT: 100, ETHUSDT: 2 };
+const SPOT_HEAT_RAMP = [[24, 16, 40], [74, 32, 96], [140, 52, 126],
+                        [205, 82, 86], [255, 176, 58]];
+const DEPTH_HEAT_RAMP = [[10, 26, 38], [12, 62, 80], [18, 120, 132], [64, 190, 176]];
+const WALL_COLOR = "rgba(255,196,72,0.95)";
+const BAR_MS = { "1m": 60000, "1h": 3600000, "1d": 86400000 };
+const heatCache = new Map();          // "spot|SYM|90d" -> payload
+
+function heatWindowValue(key, allowed, dflt) {
+  const v = localStorage.getItem(key);
+  return allowed.includes(v) ? v : dflt;
+}
+const spotHeatState = {
+  data: null, visible: layerVisible("spotheat"),
+  window: heatWindowValue("vsa_spotheat_window", SPOT_HEAT_WINDOWS, "90d"),
+  rev: 0, grid: null, gridKey: "",
+};
+const depthHeatState = {
+  data: null, visible: layerVisible("depthheat"),
+  window: heatWindowValue("vsa_depthheat_window", DEPTH_HEAT_WINDOWS, "7d"),
+  rev: 0, grid: null, gridKey: "",
+};
+
+function heatHasData() {
+  return (spotHeatState.visible && spotHeatState.data)
+      || (depthHeatState.visible && depthHeatState.data);
+}
+/* The heat columns are source timestamps, not bar times.  lightweight-charts'
+ * timeToCoordinate() returns null for a timestamp that is not exactly a bar
+ * time, so columns are snapped to the containing loaded bar and drawn with
+ * logicalToCoordinate(barIndex) instead. */
+function barIndexForTs(ms) {
+  const bars = S.bars;
+  if (!bars || !bars.length) return -1;
+  let lo = 0, hi = bars.length - 1, ans = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (bars[mid].open_time <= ms) { ans = mid; lo = mid + 1; } else hi = mid - 1;
+  }
+  return ans;
+}
+function rampColor(stops, t) {
+  const x = Math.max(0, Math.min(1, t)) * (stops.length - 1);
+  const i = Math.min(stops.length - 2, Math.floor(x));
+  return mixRgb(stops[i], stops[i + 1], x - i);
+}
+function heatColorTable(ramp) {
+  const out = [];
+  for (let i = 0; i < 32; i++) out.push(rampColor(ramp, i / 31));
+  return out;
+}
+const SPOT_HEAT_COLORS = heatColorTable(SPOT_HEAT_RAMP);
+const DEPTH_HEAT_COLORS = heatColorTable(DEPTH_HEAT_RAMP);
+function heatColor(table, v, vmax, wall) {
+  if (wall) return WALL_COLOR;
+  if (!(v > 0) || !(vmax > 0)) return table[0];
+  const t = Math.min(1, Math.log10(1 + v) / Math.log10(1 + vmax));
+  return table[Math.min(table.length - 1, Math.floor(t * (table.length - 1)))];
+}
+function heatP99(values) {
+  if (!values.length) return 0;
+  const s = values.slice().sort((a, b) => a - b);
+  return s[Math.min(s.length - 1, Math.floor(s.length * 0.99))];
+}
+function buildSpotHeatGrid(payload) {
+  if (!payload || !payload.available || !payload.columns) return null;
+  const width = Number(payload.bucket_usd) || 10;
+  const byBar = new Map();
+  for (const col of payload.columns) {
+    const bi = barIndexForTs(col.t);
+    if (bi < 0) continue;
+    let e = byBar.get(bi);
+    if (!e) { e = { mid: col.mid, cells: new Map() }; byBar.set(bi, e); }
+    e.mid = col.mid;
+    for (const side of ["bid", "ask"]) {
+      for (const c of (col[side + "s"] || [])) {
+        const key = side + "|" + c[0];
+        const prev = e.cells.get(key);
+        if (!prev || c[2] > prev.v)
+          e.cells.set(key, { v: c[2], side, p: c[0], w: width, t: col.t });
+      }
+    }
+  }
+  for (const e of byBar.values()) {
+    const b = [], a = [];
+    for (const c of e.cells.values()) (c.side === "bid" ? b : a).push(c.v);
+    e.wallBid = heatP99(b);
+    e.wallAsk = heatP99(a);
+  }
+  return { byBar, vmax: Number(payload.p99_notional) || 0, layer: "spot" };
+}
+function buildDepthHeatGrid(payload) {
+  if (!payload || !payload.available || !payload.columns) return null;
+  const width = HEAT_DEPTH_BUCKET_USD[S.symbol] || 100;
+  const byBar = new Map();
+  for (const col of payload.columns) {
+    const bi = barIndexForTs(col.t);
+    if (bi < 0) continue;
+    let e = byBar.get(bi);
+    if (!e) { e = { mid: col.mid, cells: new Map() }; byBar.set(bi, e); }
+    e.mid = col.mid;
+    const mid = Number(col.mid);
+    if (!(mid > 0)) continue;
+    for (const side of ["bid", "ask"]) {
+      for (const c of (col[side + "s"] || [])) {
+        const inner = Number(c[0]), outer = Number(c[1]), notional = Number(c[2]);
+        if (!(notional > 0) || !(outer > inner)) continue;
+        let pLo, pHi;
+        if (side === "bid") { pLo = mid * (1 - outer / 100); pHi = mid * (1 - inner / 100); }
+        else { pLo = mid * (1 + inner / 100); pHi = mid * (1 + outer / 100); }
+        if (!(pHi > pLo)) continue;
+        const b0 = Math.floor(pLo / width);
+        const b1 = Math.floor((pHi - 1e-9) / width);
+        const span = pHi - pLo;
+        for (let b = b0; b <= b1; b++) {
+          const lo = Math.max(pLo, b * width), hi = Math.min(pHi, (b + 1) * width);
+          const frac = Math.max(0, hi - lo) / span;
+          if (!(frac > 0)) continue;
+          const key = side + "|" + b;
+          const v = notional * frac;
+          const prev = e.cells.get(key);
+          if (!prev || v > prev.v)
+            e.cells.set(key, { v, side, p: b * width, w: width, t: col.t });
+        }
+      }
+    }
+  }
+  for (const e of byBar.values()) {
+    const b = [], a = [];
+    for (const c of e.cells.values()) (c.side === "bid" ? b : a).push(c.v);
+    e.wallBid = heatP99(b);
+    e.wallAsk = heatP99(a);
+  }
+  return { byBar, vmax: Number(payload.p99_notional) || 0, layer: "depth" };
+}
+function heatGridKey(state) {
+  const first = S.bars.length ? S.bars[0].open_time : 0;
+  const last = S.bars.length ? S.bars[S.bars.length - 1].open_time : 0;
+  return [S.symbol, S.interval, state.window, state.rev,
+          S.bars.length, first, last].join("|");
+}
+function heatGrid(state, layer) {
+  const key = heatGridKey(state);
+  if (state.grid && state.gridKey === key) return state.grid;
+  state.grid = layer === "spot" ? buildSpotHeatGrid(state.data)
+                                : buildDepthHeatGrid(state.data);
+  state.gridKey = key;
+  return state.grid;
+}
+let heatCanvas = null;
+let heatCacheKey = "";
+function drawHeat(ctx, right, H) {
+  const layers = [];
+  if (depthHeatState.visible && depthHeatState.data) {
+    const g = heatGrid(depthHeatState, "depth");
+    if (g) layers.push({ g, table: DEPTH_HEAT_COLORS, alpha: 0.42 });
+  }
+  if (spotHeatState.visible && spotHeatState.data) {
+    const g = heatGrid(spotHeatState, "spot");
+    if (g) layers.push({ g, table: SPOT_HEAT_COLORS, alpha: 0.62 });
+  }
+  if (!layers.length) return;
+  const vis = chart.timeScale().getVisibleLogicalRange();
+  if (!vis) return;
+  const from = Math.max(0, Math.floor(vis.from) - 1);
+  const to = Math.min(S.bars.length - 1, Math.ceil(vis.to) + 1);
+  const pTop = candleSeries.coordinateToPrice(0);
+  const pBot = candleSeries.coordinateToPrice(H);
+  /* The pane repaints on every crosshair move.  Rasterize once per visible
+   * window and blit the cached bitmap; pan/zoom changes the key and rebuilds. */
+  const key = [spotHeatState.gridKey, depthHeatState.gridKey,
+               spotHeatState.visible, depthHeatState.visible,
+               from, to, right.toFixed(0), H.toFixed(0),
+               pTop === null ? "" : pTop.toFixed(2),
+               pBot === null ? "" : pBot.toFixed(2)].join("|");
+  if (heatCacheKey === key && heatCanvas) { ctx.drawImage(heatCanvas, 0, 0); return; }
+  if (!heatCanvas) heatCanvas = document.createElement("canvas");
+  heatCanvas.width = Math.max(1, Math.ceil(right));
+  heatCanvas.height = Math.max(1, Math.ceil(H));
+  const hctx = heatCanvas.getContext("2d");
+  const spacing = chart.timeScale().options().barSpacing || 6;
+  const colW = Math.max(1, spacing * 0.9);
+  for (const { g, table, alpha } of layers) {
+    for (let bi = from; bi <= to; bi++) {
+      const e = g.byBar.get(bi);
+      if (!e) continue;
+      const x = chart.timeScale().logicalToCoordinate(bi);
+      if (x === null) continue;
+      const x0 = x - colW / 2;
+      for (const c of e.cells.values()) {
+        const y0 = candleSeries.priceToCoordinate(c.p);
+        const y1 = candleSeries.priceToCoordinate(c.p + c.w);
+        if (y0 === null || y1 === null) continue;
+        const top = Math.min(y0, y1);
+        const h = Math.max(1, Math.abs(y1 - y0));
+        if (top > H || top + h < 0) continue;
+        const wall = c.v >= (c.side === "bid" ? e.wallBid : e.wallAsk);
+        hctx.globalAlpha = wall ? 0.95 : alpha;
+        hctx.fillStyle = heatColor(table, c.v, g.vmax, wall);
+        hctx.fillRect(x0, top, colW, h);
+      }
+    }
+  }
+  hctx.globalAlpha = 1;
+  heatCacheKey = key;
+  ctx.drawImage(heatCanvas, 0, 0);
+}
+/* The tooltip row reads the source columns (not the rasterized grid), so it
+ * can name the bin time and the exact band the cursor is in. */
+function heatTooltipRow(openTime, paneY) {
+  const price = candleSeries.coordinateToPrice(paneY);
+  if (price === null) return "";
+  const barMs = BAR_MS[S.interval] || 86400000;
+  const barEnd = openTime + barMs;
+  const pick = (cols) => {
+    let hit = null;
+    for (const c of cols) { if (c.t <= barEnd) hit = c; else break; }
+    return hit || cols[0] || null;
+  };
+  const rows = [];
+  if (spotHeatState.visible && spotHeatState.data) {
+    const d = spotHeatState.data;
+    const col = pick(d.columns || []);
+    if (col) {
+      const w = Number(d.bucket_usd) || 10;
+      const b = Math.floor(price / w) * w;
+      let hit = null;
+      for (const side of ["bid", "ask"]) {
+        for (const c of (col[side + "s"] || [])) {
+          if (c[0] <= b + 1e-9 && b < c[0] + w) { hit = { side, c }; break; }
+        }
+        if (hit) break;
+      }
+      rows.push(hit
+        ? `<tr><td class="k src-label">Spot L2 ${hit.side}<br><span class="src-meta">${fmtUsd(hit.c[2])} · ${fmtNum(hit.c[1], 4)} base · ${hit.c[3]} levels · ${fmtTs(col.t, "1d")}</span></td><td class="v">${fmtUsd(hit.c[2])}</td></tr>`
+        : `<tr><td class="k src-label">Spot L2<br><span class="src-meta">snapshot ${fmtTs(col.t, "1d")}</span></td><td class="v na">no level at this price</td></tr>`);
+    }
+  }
+  if (depthHeatState.visible && depthHeatState.data) {
+    const d = depthHeatState.data;
+    const col = pick(d.columns || []);
+    if (col) {
+      const mid = Number(col.mid);
+      const off = mid > 0 ? (price / mid - 1) * 100 : 0;
+      const side = off < 0 ? "bid" : "ask";
+      const a = Math.abs(off);
+      let hit = null;
+      for (const c of (col[side + "s"] || [])) {
+        if (c[0] <= a + 1e-9 && a <= c[1] + 1e-9) { hit = c; break; }
+      }
+      rows.push(hit
+        ? `<tr><td class="k src-label">Futures depth ${side}<br><span class="src-meta">±${hit[0]}–${hit[1]}% · ${fmtUsd(hit[2])} · ${fmtNum(hit[3], 2)} base · ${fmtTs(col.t, "1h")}</span></td><td class="v">${fmtUsd(hit[2])}</td></tr>`
+        : `<tr><td class="k src-label">Futures depth<br><span class="src-meta">${fmtTs(col.t, "1h")} · outside ±5%</span></td><td class="v na">n/a</td></tr>`);
+    }
+  }
+  return rows.join("");
+}
+function updateSpotHeatStatus() {
+  const el = document.getElementById("status-spot-heat");
+  if (!el) return;
+  const d = spotHeatState.data;
+  if (!d) {
+    el.textContent = "Spot L2 heat — not available (collect on the PC refresh)";
+    return;
+  }
+  el.textContent = `Spot L2 ${d.window} — ${d.n_snapshots} daily snapshot(s) to ${fmtDay(d.as_of)}`
+    + ` · ${fmtNum(d.n_cells, 0)} cells · p99 ${fmtUsd(d.p99_notional)}`
+    + (spotHeatState.visible ? "" : " — hidden");
+}
+function updateDepthHeatStatus() {
+  const el = document.getElementById("status-depth-heat");
+  if (!el) return;
+  const d = depthHeatState.data;
+  if (!d) {
+    el.textContent = "Futures depth heat — not available (run the refresh)";
+    return;
+  }
+  el.textContent = `Futures depth ${d.window} — ${d.n_bins} × 10-min bins to ${fmtDay(d.as_of)}`
+    + ` · ±${(d.bands_pct || []).join("/")}% · p99 ${fmtUsd(d.p99_notional)}`
+    + (depthHeatState.visible ? "" : " — hidden");
+}
+async function loadSpotHeat(force = false) {
+  const key = `spot|${S.symbol}|${spotHeatState.window}`;
+  try {
+    let d = force ? null : heatCache.get(key);
+    if (!d) {
+      d = await api(`/api/orderbook_spot?symbol=${S.symbol}&window=${spotHeatState.window}`);
+      heatCache.set(key, d);
+    }
+    spotHeatState.data = d && d.available ? d : null;
+  } catch (e) {
+    spotHeatState.data = null;
+  }
+  spotHeatState.rev++;
+  spotHeatState.grid = null;
+  requestRedraw();
+  updateSpotHeatStatus();
+}
+async function loadDepthHeat(force = false) {
+  const key = `depth|${S.symbol}|${depthHeatState.window}`;
+  try {
+    let d = force ? null : heatCache.get(key);
+    if (!d) {
+      d = await api(`/api/orderbook_depth?symbol=${S.symbol}&window=${depthHeatState.window}`);
+      heatCache.set(key, d);
+    }
+    depthHeatState.data = d && d.available ? d : null;
+  } catch (e) {
+    depthHeatState.data = null;
+  }
+  depthHeatState.rev++;
+  depthHeatState.grid = null;
+  requestRedraw();
+  updateDepthHeatStatus();
+}
+function buildHeatButtons() {
+  const groups = [
+    ["spot-heat-window", SPOT_HEAT_WINDOWS, spotHeatState, "vsa_spotheat_window", loadSpotHeat],
+    ["depth-heat-window", DEPTH_HEAT_WINDOWS, depthHeatState, "vsa_depthheat_window", loadDepthHeat],
+  ];
+  for (const [id, wins, state, lsKey, load] of groups) {
+    const wrap = document.getElementById(id);
+    if (!wrap) continue;
+    wrap.innerHTML = "";
+    for (const w of wins) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = w;
+      b.dataset.w = w;
+      b.classList.toggle("active", w === state.window);
+      b.addEventListener("click", async () => {
+        state.window = w;
+        localStorage.setItem(lsKey, w);
+        for (const x of wrap.querySelectorAll("button"))
+          x.classList.toggle("active", x.dataset.w === w);
+        await load();
+      });
+      wrap.appendChild(b);
+    }
+  }
+}
+
 const profilePrimitive = {
   paneViews() {
     return [{ zOrder: () => "bottom", renderer: () => ({ draw: drawProfile }) }];
@@ -767,6 +1133,8 @@ async function loadInterval() {
   updateStatus();
   await loadProfile();
   await loadCostBasis();
+  await loadSpotHeat();
+  await loadDepthHeat();
   renderEtf();   // its bars are clipped to the range just loaded
   chart.timeScale().scrollToRealTime();
 }
@@ -867,7 +1235,7 @@ function paintTooltip(openTime, ptx, pty) {
   tooltip.innerHTML = `<h3>${fmtTs(openTime, S.interval)} · ${mkt}${b.cross_filled ? " · cross-filled" : ""}${b.follows_gap ? " · follows gap" : ""}${b.live ? " · ⚠" : ""}</h3>
     <div class="ohlc"><span>O ${fmtNum(b.open, 4)}</span><span>H <b style="color:${UP}">${fmtNum(b.high, 4)}</b></span>
     <span>L <b style="color:${DOWN}">${fmtNum(b.low, 4)}</b></span><span>C ${fmtNum(b.close, 4)}</span></div>
-    <table>${rows.join("")}${etfTooltipRow(openTime)}${profileTooltipRow(pty)}${costBasisTooltipRow(pty)}</table>${liveNote}`;
+    <table>${rows.join("")}${etfTooltipRow(openTime)}${profileTooltipRow(pty)}${heatTooltipRow(openTime, pty)}${costBasisTooltipRow(pty)}</table>${liveNote}`;
   tooltip.style.display = "block";
   const pad = 14, tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
   let x = ptx + pad, y = pty + pad;
@@ -958,11 +1326,15 @@ function updateStatus() {
     <span id="status-source"></span>
     <span id="status-large"></span>
     <span id="status-profile"></span>
+    <span id="status-spot-heat"></span>
+    <span id="status-depth-heat"></span>
     <span id="status-cb"></span>
     <span id="status-etf"></span>
     <span id="status-hover"></span>
     <span class="mkt-note">OHLC: spot → 2024-12-31, then futures UM → latest (refreshed before each session)</span>`;
   updateProfileStatus();   // the spans above were just replaced; refill them
+  updateSpotHeatStatus();
+  updateDepthHeatStatus();
   updateCostBasisStatus();
   updateEtfStatus();
   updateSourceStatus();
@@ -1173,6 +1545,12 @@ function buildLayerEyes() {
     { id: "etf-eye", name: "etf", groups: [],
       label: "spot-ETF daily net flows", state: etfState,
       refresh: () => { renderEtf(); } },
+    { id: "spot-heat-eye", name: "spotheat", groups: ["spot-heat-window"],
+      label: "spot order-book heat", state: spotHeatState,
+      refresh: () => { requestRedraw(); updateSpotHeatStatus(); } },
+    { id: "depth-heat-eye", name: "depthheat", groups: ["depth-heat-window"],
+      label: "futures depth heat", state: depthHeatState,
+      refresh: () => { requestRedraw(); updateDepthHeatStatus(); } },
   ];
   for (const e of eyes) {
     const btn = document.getElementById(e.id);
@@ -2561,6 +2939,7 @@ function showNewDataChip(m) {
     document.getElementById("intervals").querySelector(`[data-iv="${S.interval}"]`)?.classList.add("active");
     buildProfileButtons();
     buildCostBasisButtons();
+    buildHeatButtons();
     buildLayerEyes();
     buildMarkerToggles();
     populateSymbolSelect();
