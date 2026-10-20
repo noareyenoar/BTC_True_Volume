@@ -91,9 +91,17 @@ jobs:
           D=$(date -u -d '2 days ago' +%F)     # Vision daily zips publish with ~1 day lag
           BD=$(date -u -d '10 days ago' +%F)   # any settled bitview anchor answers
           V=https://data.binance.vision/data/futures/um/daily
+          # Additive datasets: log reachability but never block the core refresh.
+          soft_check() {   # $1=label, $2=url, $3=extra curl args
+            local code
+            code=$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 30 \
+                   ${3:-} "$2" || echo 000)
+            printf '%s  %s (soft)\n' "$code" "$1"
+          }
           check "vision klines"    "$V/klines/BTCUSDT/1d/BTCUSDT-1d-$D.zip" "-r 0-99"
           check "vision aggTrades" "$V/aggTrades/BTCUSDT/BTCUSDT-aggTrades-$D.zip" "-r 0-99"
           check "vision metrics"   "$V/metrics/BTCUSDT/BTCUSDT-metrics-$D.zip" "-r 0-99"
+          soft_check "vision bookDepth" "$V/bookDepth/BTCUSDT/BTCUSDT-bookDepth-$D.zip" "-r 0-99"
           check "coinmetrics"      "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=PriceUSD&page_size=1"
           check "blockchain.info"  "https://api.blockchain.info/charts/market-price?timespan=1days&format=json"
           check "checkonchain cdn" "https://charts-cdn.checkonchain.com/btconchain/etfs/etf_flowsvsprice/etf_flowsvsprice_light.html"
@@ -261,6 +269,11 @@ jobs:
         if: hashFiles('_state_ready') != ''
         working-directory: Dataset_Fetcher/BTC_True_Volume
         run: node probe_dated_pair.js
+
+      - name: verify (probe_orderbook — the depth-heat grids)
+        if: hashFiles('_state_ready') != ''
+        working-directory: Dataset_Fetcher/BTC_True_Volume
+        run: node probe_orderbook.js
 
       - name: push site to main
         if: hashFiles('_state_ready') != '' && !inputs.dry_run
