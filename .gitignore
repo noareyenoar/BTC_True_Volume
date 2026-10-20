@@ -9,6 +9,13 @@ site/
 # ../binance_full_dataset aggTrades). The small 1d/1h stores stay tracked.
 processed/vsa_klines/**/1m/merged.parquet
 
+# ---- order-book depth stores ----
+# Daily order-book snapshots travel through the site repo's shared store
+# (site/orderbook_data/) and the Actions state cache; committing them to the
+# code branch would only be deleted by the cloud's state-reset step.
+processed/orderbook_spot/
+processed/orderbook_depth/
+
 # ---- python ----
 __pycache__/
 *.py[cod]

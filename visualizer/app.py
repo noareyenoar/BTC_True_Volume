@@ -530,6 +530,195 @@ def _display_width(symbol: str, lo: float, hi: float) -> float:
     return float(DISPLAY_LADDER[symbol][-1])
 
 
+# --------------------------------------------------------------------------- #
+#  order-book depth heat                                                       #
+# --------------------------------------------------------------------------- #
+# Two daily stores (written by collect_orderbook.py in the refresh chain):
+#   orderbook_spot/{SYM}/daily/*.parquet   one Binance spot L2 snapshot / day
+#   orderbook_depth/{SYM}/daily/*.parquet  Vision futures bookDepth, 10-minute bins
+# The payload builders are plain functions so export_static_site can call them
+# with a merged DataFrame from the site repo's cross-publisher shared store.
+ORDERBOOK_SPOT = DATA_ROOT / "orderbook_spot"
+ORDERBOOK_DEPTH = DATA_ROOT / "orderbook_depth"
+OB_SPOT_WINDOWS = {"30d": 30, "90d": 90, "1y": 365}
+OB_DEPTH_WINDOWS = {"1d": 1, "7d": 7, "30d": 30}
+
+
+def _ob_unavailable(symbol: str, window: str, note: str) -> Dict:
+    return {"symbol": symbol, "window": window, "available": False,
+            "as_of": None, "first_ts": None, "last_ts": None,
+            "columns": [], "n_cells": 0, "n_snapshots": 0, "n_bins": 0,
+            "p99_notional": 0.0, "max_notional": 0.0, "max_cell": None,
+            "bands_pct": [], "note": note}
+
+
+def _ob_store(root: Path, symbol: str) -> Optional[pd.DataFrame]:
+    daily = root / symbol / "daily"
+    files = sorted(daily.glob("*.parquet")) if daily.exists() else []
+    if not files:
+        files = sorted((root / symbol).glob("*.parquet"))
+    if not files:
+        return None
+    try:
+        return pd.concat((pd.read_parquet(f) for f in files), ignore_index=True)
+    except Exception as exc:  # noqa: BLE001 — a bad store must not 500 the page
+        logger.warning("orderbook: unreadable store %s/%s: %s", root, symbol, exc)
+        return None
+
+
+def _ob_p99(values: List[float]) -> float:
+    v = np.asarray([float(x) for x in values
+                    if x is not None and np.isfinite(float(x)) and float(x) > 0])
+    return float(np.percentile(v, 99)) if len(v) else 0.0
+
+
+def orderbook_spot_payload(symbol: str, window: str = "90d",
+                           df: Optional[pd.DataFrame] = None) -> Dict:
+    """Sparse spot L2 heat: one column per daily snapshot, price buckets."""
+    days = OB_SPOT_WINDOWS.get(window)
+    if days is None:
+        window, days = "90d", OB_SPOT_WINDOWS["90d"]
+    if df is None:
+        df = _ob_store(ORDERBOOK_SPOT, symbol)
+    if df is None or df.empty:
+        return _ob_unavailable(symbol, window,
+                               "No spot L2 snapshot has been collected yet. Cloud "
+                               "runs skip Binance spot REST (geo-blocked); the PC "
+                               "refresh carries this layer.")
+    d = df[df["symbol"] == symbol].copy()
+    if d.empty:
+        return _ob_unavailable(symbol, window,
+                               f"No spot L2 snapshots for {symbol} in the store.")
+    d["day_dt"] = pd.to_datetime(d["day"], utc=True, errors="coerce")
+    d = d.dropna(subset=["day_dt"])
+    if d.empty:
+        return _ob_unavailable(symbol, window, "Spot store has no parseable days.")
+    as_of = d["day_dt"].max()
+    d = d[d["day_dt"] >= as_of - pd.Timedelta(days=days - 1)]
+    # One column per UTC day: keep the day's last snapshot — ALL of its rows,
+    # not one row (the snapshot is the unit, not the bucket).
+    last = d.groupby("day")["snapshot_ts"].transform("max")
+    d = d[d["snapshot_ts"] == last]
+    columns: List[Dict] = []
+    all_vals: List[float] = []
+    max_q, max_cell = 0.0, None
+    for _, g in d.groupby("day", sort=True):
+        mid = float(g["mid"].iloc[0])
+        t = int(g["snapshot_ts"].iloc[0])
+        sides = {}
+        for side in ("bid", "ask"):
+            s = g[g["side"] == side].sort_values("price_bucket")
+            sides[side] = [[float(r.price_bucket), float(r.qty_base),
+                            float(r.notional_usd), int(r.n_levels)]
+                           for r in s.itertuples()]
+            for c in sides[side]:
+                if c[2] > 0:
+                    all_vals.append(c[2])
+                if c[2] > max_q:
+                    max_q, max_cell = c[2], {"t": t, "side": side,
+                                             "p": c[0], "q": c[2]}
+        vals = [c[2] for c in sides["bid"] + sides["ask"] if c[2] > 0]
+        columns.append({"t": t, "mid": mid, "w99": _ob_p99(vals),
+                        "bids": sides["bid"], "asks": sides["ask"]})
+    if not columns:
+        return _ob_unavailable(symbol, window, "Spot store has no snapshots in window.")
+    widths = sorted({float(x) for x in d["bucket_usd"].dropna().unique()})
+    n_cells = sum(len(c["bids"]) + len(c["asks"]) for c in columns)
+    return {
+        "symbol": symbol, "window": window, "available": True,
+        "as_of": str(as_of.date()), "first_ts": columns[0]["t"],
+        "last_ts": columns[-1]["t"], "bucket_usd": widths[-1] if widths else 10.0,
+        "limit_levels": 5000, "source": "binance_spot_rest_depth",
+        "n_snapshots": len(columns), "n_cells": int(n_cells),
+        "p99_notional": _ob_p99(all_vals), "max_notional": max_q,
+        "max_cell": max_cell, "columns": columns,
+        "note": "One Binance spot L2 snapshot per daily PC refresh; 5,000 "
+                "levels/side cover about +/-1% for BTC and +/-4% for ETH. "
+                "Not continuous; not traded volume.",
+    }
+
+
+def orderbook_depth_payload(symbol: str, window: str = "30d",
+                            df: Optional[pd.DataFrame] = None) -> Dict:
+    """Sparse futures depth-band heat: 10-minute bins x distance bands."""
+    days = OB_DEPTH_WINDOWS.get(window)
+    if days is None:
+        window, days = "30d", OB_DEPTH_WINDOWS["30d"]
+    if df is None:
+        df = _ob_store(ORDERBOOK_DEPTH, symbol)
+    if df is None or df.empty:
+        return _ob_unavailable(symbol, window,
+                               "No Vision bookDepth days have been collected yet. "
+                               "Run the refresh (90-day backfill on first run).")
+    d = df[df["symbol"] == symbol].copy()
+    if d.empty:
+        return _ob_unavailable(symbol, window,
+                               f"No Vision bookDepth data for {symbol} in the store.")
+    d["bin_dt"] = pd.to_datetime(d["bin_ms"], unit="ms", utc=True)
+    as_of = d["bin_dt"].dt.normalize().max()
+    d = d[d["bin_dt"] >= as_of - pd.Timedelta(days=days - 1)]
+    # One column per bin: keep the last snapshot's rows (all bands), not one row.
+    last = d.groupby("bin_ms")["snapshot_ts"].transform("max")
+    d = d[d["snapshot_ts"] == last]
+    columns: List[Dict] = []
+    all_vals: List[float] = []
+    max_q, max_cell = 0.0, None
+    for bin_ms, g in d.groupby("bin_ms", sort=True):
+        mid = float(np.nanmedian(g["mid"].to_numpy(dtype=float)))
+        t = int(bin_ms)
+        sides = {}
+        for side in ("bid", "ask"):
+            s = g[g["side"] == side].sort_values("pct_abs")
+            cells, prev = [], 0.0
+            for r in s.itertuples():
+                if float(r.band_notional) > 0 and float(r.pct_abs) > prev:
+                    cells.append([float(prev), float(r.pct_abs),
+                                  float(r.band_notional), float(r.band_depth)])
+                    if float(r.band_notional) > max_q:
+                        max_q, max_cell = (float(r.band_notional),
+                                           {"t": t, "side": side,
+                                            "inner": float(prev),
+                                            "outer": float(r.pct_abs),
+                                            "q": float(r.band_notional)})
+                prev = float(r.pct_abs)
+            sides[side] = cells
+            all_vals.extend(c[2] for c in cells if c[2] > 0)
+        vals = [c[2] for c in sides["bid"] + sides["ask"] if c[2] > 0]
+        columns.append({"t": t, "mid": mid, "w99": _ob_p99(vals),
+                        "bids": sides["bid"], "asks": sides["ask"]})
+    if not columns:
+        return _ob_unavailable(symbol, window, "No depth bins in window.")
+    n_cells = sum(len(c["bids"]) + len(c["asks"]) for c in columns)
+    bands = sorted({round(float(x), 2) for x in d["pct_abs"].dropna().unique()})
+    return {
+        "symbol": symbol, "window": window, "available": True,
+        "as_of": str(as_of.date()), "first_ts": columns[0]["t"],
+        "last_ts": columns[-1]["t"], "bin_ms": 600000,
+        "source": "binance_vision_futures_um_bookDepth",
+        "mid_method": "1m futures close (implied-mid fallback)",
+        "bands_pct": bands, "n_bins": len(columns), "n_cells": int(n_cells),
+        "p99_notional": _ob_p99(all_vals), "max_notional": max_q,
+        "max_cell": max_cell, "columns": columns,
+        "note": "Binance USD-M futures only; 30s source snapshots reduced to the "
+                "last per 10-minute bin; cumulative depth differenced into bands; "
+                "price interval = mid x (1 +/- pct/100). Not exact price levels.",
+    }
+
+
+@app.get("/api/orderbook_spot")
+def orderbook_spot(symbol: str = "BTCUSDT", window: str = "90d") -> Dict:
+    if symbol not in SYMBOLS:
+        raise HTTPException(404, f"symbol {symbol} not in audited set")
+    return orderbook_spot_payload(symbol, window)
+
+
+@app.get("/api/orderbook_depth")
+def orderbook_depth(symbol: str = "BTCUSDT", window: str = "30d") -> Dict:
+    if symbol not in SYMBOLS:
+        raise HTTPException(404, f"symbol {symbol} not in audited set")
+    return orderbook_depth_payload(symbol, window)
+
+
 @app.get("/api/volume_profile")
 def volume_profile(symbol: str, window: str = "90d") -> Dict:
     """Where volume actually traded, bucketed by price.

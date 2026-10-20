@@ -72,6 +72,8 @@ DS = {
     "binance_vision_klines": "binance_vision_klines",
     "binance_vision_aggtrades": "binance_vision_aggtrades",
     "binance_vision_metrics": "binance_vision_metrics",
+    "binance_spot_depth": "binance_spot_rest_depth",
+    "binance_vision_bookdepth": "binance_vision_bookdepth_10m",
     "deribit": "deribit_public_api",
     "onchain_local": "onchain_dataset_local",
     "checkonchain_github": "checkonchain_public_github_pages",

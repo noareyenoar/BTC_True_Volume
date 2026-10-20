@@ -36,12 +36,14 @@ import hashlib
 import json
 import logging
 import math
+import os
 import shutil
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-7s | %(message)s")
 logger = logging.getLogger("tvp.export_site")
@@ -95,11 +97,126 @@ def _dump(payload, path: Path, gz: bool) -> None:
                       indent=None, separators=(",", ":"))
     tmp = path.with_name(path.name + ".tmp")
     if gz:
-        tmp.write_bytes(gzip.compress(text.encode("utf-8"), 9))
+        # mtime=0: gzip otherwise stamps the current time and every unchanged
+        # .gz becomes a new blob in the site repo on every publish.
+        tmp.write_bytes(gzip.compress(text.encode("utf-8"), 9, mtime=0))
     else:
         tmp.write_text(text, encoding="utf-8")
     tmp.replace(path)
     logger.info("wrote %s (%.1f KB)", path.name, path.stat().st_size / 1024)
+
+
+# --------------------------------------------------------------------------- #
+#  order-book depth heat: cross-publisher shared store                          #
+# --------------------------------------------------------------------------- #
+# The PC and the cloud both publish, and the PC's processed/ never reaches the
+# cloud.  The site repo is the one rendezvous both already fetch before export:
+# each publisher copies its new local day files into orderbook_data/ here (with
+# a publisher suffix, so neither ever overwrites the other), and the payloads
+# are rebuilt from the union.  Day files are small and immutable, so this adds
+# ~100 KB/day of history instead of rewriting a multi-MB parquet every publish.
+ORDERBOOK_LOCAL = {
+    "spot": (BASE / "processed" / "orderbook_spot", 400),
+    "depth": (BASE / "processed" / "orderbook_depth", 120),
+}
+ORDERBOOK_SHARED = SITE / "orderbook_data"
+ORDERBOOK_JSON = SITE / "orderbook"
+PUBLISHER = "gh" if os.environ.get("GITHUB_ACTIONS") else "pc"
+
+
+def _file_sig(path: Path) -> str:
+    h = hashlib.sha1()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _sync_orderbook_store() -> None:
+    """Copy local day files into site/orderbook_data, then prune both sides."""
+    for kind, (local_root, retain) in ORDERBOOK_LOCAL.items():
+        if not local_root.exists():
+            continue
+        cutoff = date.today() - timedelta(days=retain)
+        for sym_dir in sorted(p for p in local_root.iterdir() if p.is_dir()):
+            src_dir = sym_dir / "daily"
+            if not src_dir.exists():
+                continue
+            dst_dir = ORDERBOOK_SHARED / kind / sym_dir.name
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            copied = 0
+            for src in sorted(src_dir.glob("*.parquet")):
+                dst = dst_dir / f"{src.stem}_{PUBLISHER}.parquet"
+                if dst.exists() and _file_sig(dst) == _file_sig(src):
+                    continue
+                shutil.copy2(src, dst)
+                copied += 1
+            if copied:
+                logger.info("orderbook %s/%s: %d day file(s) synced",
+                            kind, sym_dir.name, copied)
+            for f in dst_dir.glob("*.parquet"):
+                try:
+                    d = date.fromisoformat(f.name.split("_")[0])
+                except ValueError:
+                    continue
+                if d < cutoff:
+                    f.unlink(missing_ok=True)
+            for f in src_dir.glob("*.parquet"):
+                try:
+                    d = date.fromisoformat(f.stem)
+                except ValueError:
+                    continue
+                if d < cutoff:
+                    f.unlink(missing_ok=True)
+
+
+def _read_shared_orderbook(kind: str, sym: str, retain_days: int) -> pd.DataFrame | None:
+    d = ORDERBOOK_SHARED / kind / sym
+    if not d.exists():
+        return None
+    cutoff = date.today() - timedelta(days=retain_days)
+    frames = []
+    for f in sorted(d.glob("*.parquet")):
+        try:
+            day = date.fromisoformat(f.name.split("_")[0])
+        except ValueError:
+            continue
+        if day < cutoff:
+            continue
+        try:
+            frames.append(pd.read_parquet(f))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("orderbook: unreadable %s: %s", f, exc)
+    if not frames:
+        return None
+    df = pd.concat(frames, ignore_index=True)
+    if kind == "spot":
+        keys = ["day", "snapshot_ts", "side", "price_bucket"]
+    else:
+        keys = ["bin_ms", "snapshot_ts", "side", "percentage"]
+    return df.drop_duplicates(keys, keep="last")
+
+
+def _export_orderbook() -> dict:
+    ORDERBOOK_JSON.mkdir(parents=True, exist_ok=True)
+    files = {"spot": {}, "depth": {}}
+    for sym in SYMS:
+        spot = _read_shared_orderbook("spot", sym, 400)
+        for win in app.OB_SPOT_WINDOWS:
+            payload = app.orderbook_spot_payload(sym, win, df=spot)
+            name = f"{sym}_spot_{win}.json.gz"
+            _dump(payload, ORDERBOOK_JSON / name, gz=True)
+            files["spot"][f"{sym}_{win}"] = f"orderbook/{name}"
+        depth = _read_shared_orderbook("depth", sym, 120)
+        for win in app.OB_DEPTH_WINDOWS:
+            payload = app.orderbook_depth_payload(sym, win, df=depth)
+            name = f"{sym}_depth_{win}.json.gz"
+            _dump(payload, ORDERBOOK_JSON / name, gz=True)
+            files["depth"][f"{sym}_{win}"] = f"orderbook/{name}"
+        logger.info("exported %s orderbook heat: spot=%s depth=%s", sym,
+                    "yes" if spot is not None else "no",
+                    "yes" if depth is not None else "no")
+    return files
 
 
 # --------------------------------------------------------------------------- #
@@ -251,7 +368,8 @@ def _export_cb_dated() -> dict:
 
 def build_site() -> dict:
     SITE.mkdir(parents=True, exist_ok=True)
-    for sub in ("bars", "volume", "onchain", "profile", "cost_basis", "etf"):
+    for sub in ("bars", "volume", "onchain", "profile", "cost_basis", "etf",
+                "orderbook", "orderbook_data"):
         (SITE / sub).mkdir(exist_ok=True)
 
     # 1) static assets — the app's own frontend, verbatim
@@ -275,7 +393,8 @@ def build_site() -> dict:
 
     # 3) per-symbol data — full-history endpoint payloads
     files = {"symbols": "symbols.json", "bars": {}, "volume": {}, "onchain": {},
-             "profile": {}, "cost_basis": {}, "etf": {}}
+             "profile": {}, "cost_basis": {}, "etf": {},
+             "orderbook": {"spot": {}, "depth": {}}}
     last_dates: list[int] = []
     for sym in SYMS:
         for iv in INTERVALS:
@@ -329,6 +448,11 @@ def build_site() -> dict:
     #    generation), the per-date archive the fallback.
     cb_archive = _export_cb_archive()
     cb_dated = _export_cb_dated()
+
+    # 4b) order-book depth heat — merge the PC and cloud day files through the
+    #     site repo, then rebuild both layers' window payloads.
+    _sync_orderbook_store()
+    files["orderbook"] = _export_orderbook()
 
     # 5) manifest — the frontend's static-mode detection + data_version
     data_version = datetime.fromtimestamp(max(last_dates) / 1000, tz=timezone.utc) \

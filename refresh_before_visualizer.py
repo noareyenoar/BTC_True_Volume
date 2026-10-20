@@ -57,6 +57,7 @@ try:
     )
     from . import build_vsa_klines, compute_large_trades, build_final
     from . import build_volume_profile
+    from . import collect_orderbook
     from . import fetch_checkonchain_urpd
     from . import phase1_btc_network_metrics as p1_btc
     from . import phase1_eth_network_metrics as p1_eth
@@ -72,6 +73,7 @@ except ImportError:  # direct script execution (python BTC_True_Volume/refresh_b
     )
     import build_vsa_klines, compute_large_trades, build_final
     import build_volume_profile
+    import collect_orderbook
     import fetch_checkonchain_urpd
     import phase1_btc_network_metrics as p1_btc
     import phase1_eth_network_metrics as p1_eth
@@ -537,6 +539,17 @@ def main() -> None:
                          "with no per-run time budget (~630 for the daily region, at "
                          "1/s, resumable) instead of topping it up within a budget — "
                          "the automated run does the same walk, just slower")
+    # Daily order-book depth (no live collector): one spot L2 snapshot per PC
+    # run and the Vision futures bookDepth day files.  Both are additive and
+    # must never fail the core refresh.
+    ap.add_argument("--skip-orderbook", action="store_true",
+                    help="skip both order-book depth collectors")
+    ap.add_argument("--orderbook-backfill-days", type=int, default=90,
+                    help="Vision bookDepth backfill window on first run (default 90)")
+    ap.add_argument("--orderbook-backfill", action="store_true",
+                    help="re-download the whole orderbook backfill window")
+    ap.add_argument("--orderbook-budget-min", type=float, default=10.0,
+                    help="max minutes the Vision depth backfill may spend this run")
     args = ap.parse_args()
 
     logging.basicConfig(
@@ -580,6 +593,23 @@ def main() -> None:
     rebuild_chain(force_adjudicate=args.force_adjudicate,
                   force_probe=args.force_probe,
                   backfill_cb=args.backfill_cb)
+
+    # 9: order-book depth (daily; additive, never fatal).  Placed after the
+    # rebuild so the futures 1m store used for the mid is current, and before
+    # the caller's publish_site.py, which exports the heat.
+    if not args.skip_orderbook:
+        try:
+            ob_latest = datetime.strptime(latest, "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            ob_latest = None
+        ob_res = collect_orderbook.run(
+            latest=ob_latest,
+            backfill_days=args.orderbook_backfill_days,
+            force=args.orderbook_backfill,
+            budget_min=args.orderbook_budget_min)
+        logger.info("orderbook: spot=%s depth=%s (%.1fs)",
+                    ob_res.get("spot"), ob_res.get("depth"),
+                    ob_res.get("elapsed_s", 0.0))
 
     if not args.no_launch:
         launch()

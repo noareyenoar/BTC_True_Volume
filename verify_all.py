@@ -20,6 +20,7 @@ processed/verification_report.json.
 
 from __future__ import annotations
 
+import gzip
 import json
 import logging
 import re
@@ -889,6 +890,80 @@ def verify_registry_and_log() -> List[str]:
     return errs
 
 
+def verify_orderbook() -> List[str]:
+    """Structural checks on the shipped order-book heat payloads.
+
+    The layers are additive: a missing/empty layer is reported (the page has an
+    honest unavailable body), but structural corruption — bad cells, mismatched
+    counts, unsorted columns — fails the run.
+    """
+    errs: List[str] = []
+    site = PROCESSED.parent / "site"
+    man_p = site / "manifest.json"
+    if not man_p.exists():
+        return ["orderbook: site/manifest.json missing"]
+    man = json.loads(man_p.read_text(encoding="utf-8"))
+    ob = (man.get("files") or {}).get("orderbook")
+    if not ob:
+        return ["orderbook: manifest has no files.orderbook"]
+    expect = {
+        "spot": {f"{s}_{w}" for s in SYMBOLS for w in ("30d", "90d", "1y")},
+        "depth": {f"{s}_{w}" for s in SYMBOLS for w in ("1d", "7d", "30d")},
+    }
+    for layer, keys in expect.items():
+        declared = ob.get(layer) or {}
+        missing = keys - set(declared)
+        if missing:
+            errs.append(f"orderbook {layer}: manifest missing {sorted(missing)}")
+        for key, rel in declared.items():
+            p = site / rel
+            if not p.exists():
+                errs.append(f"orderbook {layer} {key}: file missing")
+                continue
+            try:
+                payload = json.loads(gzip.decompress(p.read_bytes()).decode("utf-8"))
+            except Exception as exc:  # noqa: BLE001
+                errs.append(f"orderbook {layer} {key}: unreadable ({exc})")
+                continue
+            if not isinstance(payload.get("available"), bool):
+                errs.append(f"orderbook {layer} {key}: available is not bool")
+                continue
+            if not payload["available"]:
+                if not payload.get("note"):
+                    errs.append(f"orderbook {layer} {key}: unavailable without a note")
+                continue
+            cols = payload.get("columns") or []
+            if not cols:
+                errs.append(f"orderbook {layer} {key}: available but no columns")
+                continue
+            ts = [c.get("t") for c in cols]
+            if ts != sorted(ts):
+                errs.append(f"orderbook {layer} {key}: columns not sorted by t")
+            if payload.get("first_ts") != ts[0] or payload.get("last_ts") != ts[-1]:
+                errs.append(f"orderbook {layer} {key}: first/last_ts mismatch")
+            n = 0
+            for c in cols:
+                if not (c.get("mid") or 0) > 0:
+                    errs.append(f"orderbook {layer} {key}: non-positive mid")
+                    break
+                for side in ("bids", "asks"):
+                    for cell in (c.get(side) or []):
+                        n += 1
+                        if layer == "spot":
+                            if len(cell) < 4 or cell[0] < 0 or cell[1] < 0 or cell[2] < 0:
+                                errs.append(f"orderbook spot {key}: bad cell {cell}")
+                                break
+                        else:
+                            if (len(cell) < 4 or not (0 <= cell[0] < cell[1] <= 5.01)
+                                    or cell[2] < 0):
+                                errs.append(f"orderbook depth {key}: bad band {cell}")
+                                break
+            if n != payload.get("n_cells"):
+                errs.append(f"orderbook {layer} {key}: n_cells "
+                            f"{payload.get('n_cells')} != {n}")
+    return errs
+
+
 def run() -> Dict[str, List[str]]:
     results = {
         "step0_exchange": verify_exchange(),
@@ -900,6 +975,7 @@ def run() -> Dict[str, List[str]]:
         "cb_archive_export": verify_cb_archive_export(),
         "cb_dated_custom": verify_cb_dated_custom(),
         "etf_flows": verify_etf_flows(),
+        "orderbook_heat": verify_orderbook(),
         "registry_and_log": verify_registry_and_log(),
     }
     out = PROCESSED / "verification_report.json"
