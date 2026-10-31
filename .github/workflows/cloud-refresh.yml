@@ -128,7 +128,10 @@ jobs:
           check "blockchain.info"  "https://api.blockchain.info/charts/market-price?timespan=1days&format=json"
           check "checkonchain cdn" "https://charts-cdn.checkonchain.com/btconchain/etfs/etf_flowsvsprice/etf_flowsvsprice_light.html"
           soft_check "checkonchain transfer volume" "https://charts-cdn.checkonchain.com/btconchain/adoption/transfer_volumes_usd/transfer_volumes_usd_light.html"
-          check "checkonchain web" "https://charts.checkonchain.com/"
+          # Secondary mirrors: the URPD collector reads the CDN first and falls
+          # back to its raw cache / the GitHub tree, so an index or mirror
+          # outage must not block the core refresh.
+          soft_check "checkonchain web" "https://charts.checkonchain.com/"
           # The tree API is a secondary source for the URPD collector (the CDN
           # index and our raw cache cover it), and unauthenticated calls are
           # routinely rate-limited on shared runner IPs -- a 403 here must not
@@ -139,7 +142,7 @@ jobs:
                       "https://api.github.com/repos/checkmatey/checkonchain.com/git/trees/main" || echo 000)
           printf '%s  %s\n' "$tree_code" "github tree"
           case "$tree_code" in 2*|3*|403) ;; *) fail=1 ;; esac
-          check "github raw"       "https://raw.githubusercontent.com/checkmatey/checkonchain.com/main/README.md"
+          soft_check "github raw"  "https://raw.githubusercontent.com/checkmatey/checkonchain.com/main/README.md"
           # bitview's dated-curve API 404s wholesale as of 2026-10-31 (every
           # date AND its dates list). The cost-basis collector falls back to its
           # raw cache and the checkonchain dated store, so this is additive:
