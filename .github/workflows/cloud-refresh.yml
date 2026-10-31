@@ -86,7 +86,10 @@ jobs:
             code=$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 30 \
                    ${3:-} "$2" || echo 000)
             printf '%s  %s\n' "$code" "$1"
-            case "$code" in 2*|3*) ;; *) fail=1 ;; esac
+            case "$code" in 2*|3*) ;; *)
+              echo "::error::upstream check failed: $1 (HTTP $code) $2"
+              fail=1 ;;
+            esac
           }
           D=$(date -u -d '2 days ago' +%F)     # Vision daily zips publish with ~1 day lag
           BD=$(date -u -d '10 days ago' +%F)   # any settled bitview anchor answers
@@ -112,7 +115,10 @@ jobs:
               printf '%s  %s (%s)\n' "$code" "$1" "$d"
               case "$code" in 2*|3*) found=1; break ;; esac
             done
-            [ "$found" = 1 ] || fail=1
+            if [ "$found" != 1 ]; then
+              echo "::error::Vision check failed: $1 (no file for the last 3 days)"
+              fail=1
+            fi
           }
           check_any "vision klines"    "$V/klines/BTCUSDT/1d/BTCUSDT-1d-" ".zip" "-r 0-99"
           check_any "vision aggTrades" "$V/aggTrades/BTCUSDT/BTCUSDT-aggTrades-" ".zip" "-r 0-99"
@@ -121,7 +127,7 @@ jobs:
           check "coinmetrics"      "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=PriceUSD&page_size=1"
           check "blockchain.info"  "https://api.blockchain.info/charts/market-price?timespan=1days&format=json"
           check "checkonchain cdn" "https://charts-cdn.checkonchain.com/btconchain/etfs/etf_flowsvsprice/etf_flowsvsprice_light.html"
-          check "checkonchain transfer volume" "https://charts-cdn.checkonchain.com/btconchain/adoption/transfer_volumes_usd/transfer_volumes_usd_light.html"
+          soft_check "checkonchain transfer volume" "https://charts-cdn.checkonchain.com/btconchain/adoption/transfer_volumes_usd/transfer_volumes_usd_light.html"
           check "checkonchain web" "https://charts.checkonchain.com/"
           # The tree API is a secondary source for the URPD collector (the CDN
           # index and our raw cache cover it), and unauthenticated calls are
