@@ -140,11 +140,11 @@ jobs:
           printf '%s  %s\n' "$tree_code" "github tree"
           case "$tree_code" in 2*|3*|403) ;; *) fail=1 ;; esac
           check "github raw"       "https://raw.githubusercontent.com/checkmatey/checkonchain.com/main/README.md"
-          # bitview's dated-curve endpoint 404s for dates it has not published
-          # (2026-10-21 was absent); the collector probes its own dates list and
-          # falls back to the raw cache, so only a whole-week outage is fatal.
-          check_any "bitview" "https://bitview.space/api/series/cost-basis/all/" \
-                    "?bucket=lin200" "" "10 11 12 13 14 15 16"
+          # bitview's dated-curve API 404s wholesale as of 2026-10-31 (every
+          # date AND its dates list). The cost-basis collector falls back to its
+          # raw cache and the checkonchain dated store, so this is additive:
+          # log it, never block the core refresh on it.
+          soft_check "bitview" "https://bitview.space/api/series/cost-basis/all/$BD?bucket=lin200"
           if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
             check "etherscan" "https://api.etherscan.io/api?module=stats&action=ethsupply"
           else
