@@ -98,9 +98,25 @@ jobs:
                    ${3:-} "$2" || echo 000)
             printf '%s  %s (soft)\n' "$code" "$1"
           }
-          check "vision klines"    "$V/klines/BTCUSDT/1d/BTCUSDT-1d-$D.zip" "-r 0-99"
-          check "vision aggTrades" "$V/aggTrades/BTCUSDT/BTCUSDT-aggTrades-$D.zip" "-r 0-99"
-          check "vision metrics"   "$V/metrics/BTCUSDT/BTCUSDT-metrics-$D.zip" "-r 0-99"
+          # Vision can miss a whole day (2026-10-28 klines/aggTrades are absent
+          # while metrics exist), and the refresh itself probes the newest
+          # published day over a 3-day window.  A gate pinned to exactly "2 days
+          # ago" therefore blocks every run through a single upstream gap; this
+          # one only requires SOME recent day to exist.
+          check_any() {   # $1=label, $2=url prefix, $3=url suffix, $4=extra curl args
+            local off d code found=0
+            for off in 2 3 4; do
+              d=$(date -u -d "$off days ago" +%F)
+              code=$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 30 \
+                     ${4:-} "$2$d$3" || echo 000)
+              printf '%s  %s (%s)\n' "$code" "$1" "$d"
+              case "$code" in 2*|3*) found=1; break ;; esac
+            done
+            [ "$found" = 1 ] || fail=1
+          }
+          check_any "vision klines"    "$V/klines/BTCUSDT/1d/BTCUSDT-1d-" ".zip" "-r 0-99"
+          check_any "vision aggTrades" "$V/aggTrades/BTCUSDT/BTCUSDT-aggTrades-" ".zip" "-r 0-99"
+          check_any "vision metrics"   "$V/metrics/BTCUSDT/BTCUSDT-metrics-" ".zip" "-r 0-99"
           soft_check "vision bookDepth" "$V/bookDepth/BTCUSDT/BTCUSDT-bookDepth-$D.zip" "-r 0-99"
           check "coinmetrics"      "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=PriceUSD&page_size=1"
           check "blockchain.info"  "https://api.blockchain.info/charts/market-price?timespan=1days&format=json"
