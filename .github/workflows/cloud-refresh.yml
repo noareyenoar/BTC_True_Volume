@@ -106,9 +106,9 @@ jobs:
           # published day over a 3-day window.  A gate pinned to exactly "2 days
           # ago" therefore blocks every run through a single upstream gap; this
           # one only requires SOME recent day to exist.
-          check_any() {   # $1=label, $2=url prefix, $3=url suffix, $4=extra curl args
+          check_any() {   # $1=label, $2=url prefix, $3=url suffix, $4=extra curl args, $5=offsets
             local off d code found=0
-            for off in 2 3 4; do
+            for off in ${5:-2 3 4}; do
               d=$(date -u -d "$off days ago" +%F)
               code=$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 30 \
                      ${4:-} "$2$d$3" || echo 000)
@@ -140,7 +140,11 @@ jobs:
           printf '%s  %s\n' "$tree_code" "github tree"
           case "$tree_code" in 2*|3*|403) ;; *) fail=1 ;; esac
           check "github raw"       "https://raw.githubusercontent.com/checkmatey/checkonchain.com/main/README.md"
-          check "bitview"          "https://bitview.space/api/series/cost-basis/all/$BD?bucket=lin200"
+          # bitview's dated-curve endpoint 404s for dates it has not published
+          # (2026-10-21 was absent); the collector probes its own dates list and
+          # falls back to the raw cache, so only a whole-week outage is fatal.
+          check_any "bitview" "https://bitview.space/api/series/cost-basis/all/" \
+                    "?bucket=lin200" "" "10 11 12 13 14 15 16"
           if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
             check "etherscan" "https://api.etherscan.io/api?module=stats&action=ethsupply"
           else
