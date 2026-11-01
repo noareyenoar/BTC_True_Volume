@@ -1221,8 +1221,11 @@ def _cb_archive_pair(req_from: str, req_to: str
     when that is newer than the archive's -- and the days beyond it come back as
     ``missing``, the red flag the page prints.  "Not published yet" is not a
     different question, and a reader dragging the pencil to the chart's right
-    edge must never get a blank panel.  The START still gets no such grace: a
-    window whose beginning has no curve cannot be drawn at all.
+    edge must never get a blank panel.
+
+    The START has no such grace -- a window whose beginning has no curve cannot
+    be drawn at all -- but it is snapped against BOTH stores, per endpoint, and
+    refused only when nothing stored is within ``CB_SNAP_TOLERANCE_DAYS`` of it.
     """
     info: Dict[str, Any] = {"requested_from": req_from, "requested_to": req_to,
                             "from_snapped": False, "to_snapped": False,
@@ -1283,7 +1286,7 @@ def _cb_archive_pair(req_from: str, req_to: str
     info["from_snapped"] = prev != a.isoformat()
     info["to_snapped"] = cur != b.isoformat()
     info["requested_span_days"] = (b - a).days
-    if prev is None or cur is None or prev >= cur:
+    if prev >= cur:
         info["reason"] = (f"the archive has no date between {req_from} and "
                           f"{req_to} — both ends land on the same stored curve "
                           f"({prev}); pick a wider window")
