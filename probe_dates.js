@@ -4,8 +4,9 @@
  * probe_dated_pair.js), so parseDay/fmtDay/cbWindowLabel and the apply path are
  * the shipped functions, not a transcription. Covers what the dated-pair probe
  * cannot: the dd/mm/yyyy parsers, the calendar check, the store-span refusal
- * (including the fresh-end grace: a `to` past the newest stored date is still
- * answered within CB_FRESH_GRACE_DAYS), the red `missing` flag's render, and
+ * (only the START is bounded — a `to` past the newest stored date is answered
+ * from that curve however far out, with the red `missing` flag naming the gap),
+ * the red `missing` flag's render, and
  * that a valid pair is stored ISO (the API's own format) with the boxes
  * normalised back to day-first.
  *
@@ -182,19 +183,21 @@ function eq(label, got, want) {
   eq("boxes normalised day-first", [el("cb-from").value, el("cb-to").value],
      ["24/08/2026", "24/09/2026"]);
 
-  // The fresh-end grace: a `to` past the newest stored date is answered from
-  // that date up to CB_FRESH_GRACE_DAYS out (the payload's `missing` then names
-  // the tail in red), and still refused past it — the drag-to-the-right-edge
-  // pick must never hit a local refusal.
-  eq("cbStoreSpan grace", span.grace,
-     d.fresh_grace_days !== undefined ? d.fresh_grace_days : 7);
+  // The fresh end is UNBOUNDED: a `to` past the newest stored curve is answered
+  // from that curve however far out (the payload's `missing` names the tail in
+  // red), so the drag-to-the-right-edge pick never hits a local refusal. Only a
+  // start before the stores' first date has no curve to draw from and is refused.
   const toWithin = h.cbAddDays(span.last, 5);
   setBoxes("2026-08-24", toWithin); h.applyCustomCostBasis();
   eq("apply within grace stores", h.state().cbCustom, { from: "2026-08-24", to: toWithin });
+  const late = h.cbAddDays(span.last, 400);
+  setBoxes("2026-08-24", late); h.applyCustomCostBasis();
+  eq("apply far past the newest curve stores", h.state().cbCustom,
+     { from: "2026-08-24", to: late });
   const before = h.state().cbCustom;
-  setBoxes("2026-08-24", h.cbAddDays(span.last, 9)); h.applyCustomCostBasis();
-  console.log(`[info] apply beyond-grace strip: ${strip()}`);
-  eq("apply beyond grace keeps the old pair", h.state().cbCustom, before);
+  setBoxes(h.cbAddDays(span.first, -1), "2026-09-24"); h.applyCustomCostBasis();
+  console.log(`[info] apply before-first strip: ${strip()}`);
+  eq("apply before the first curve keeps the old pair", h.state().cbCustom, before);
 
   // The red flag: the tail span, or a single day, and hidden for windows that
   // reach their end, presets and refusals (render-driven, cannot go stale)

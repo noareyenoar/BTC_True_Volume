@@ -875,8 +875,15 @@ CB_DATED_ZONE_USD = 500.0
 # The archive comes from checkonchain's own series API (bitview.space), not the
 # charts CDN the fixed windows come from, so an archive pair names THAT host in
 # its payload. Same operator either way -- but a reader checking where a number
-# came from should be sent to the host that actually served it.
+# came from should be sent to the host that actually served it.  That host
+# STOPPED PUBLISHING on 2026-10-25, so the archive is frozen at its last cached
+# curve; do not extend it from the new API or from the dated store (see
+# fetch_checkonchain_urpd's module docstring for the measured ~32k BTC reason).
 CB_ARCHIVE_SOURCE = "checkonchain_bitview_series_api"
+# A pair whose END is newer than the archive's last curve is footed on the
+# publisher's own dated store (same generation, $500 grid) while its START still
+# comes from the archive's $200 series: two hosts in one answer, named as such.
+CB_MIXED_SOURCE = CB_ARCHIVE_SOURCE + "+" + CB_SOURCE
 # A requested date may sit this far outside the archive and still snap to its
 # nearest stored date (in the weekly region the anchors are a week apart, so half
 # a cadence plus a day; inside the daily region every date is stored and the snap
@@ -1151,66 +1158,32 @@ def _archive_snap(days: List[str], target: str) -> Optional[str]:
                                           - date.fromisoformat(target)).days), d))
 
 
-def _cb_archive_pair(req_from: str, req_to: str
-                     ) -> Tuple[Optional[pd.DataFrame], Dict[str, Any]]:
-    """Subtract two dated curves from the per-date archive.
+def _cb_dated_tail(last: str) -> List[str]:
+    """Dated-store curves NEWER than the archive's newest date.
 
-    Returns ``(frame, info)``.  The frame carries exactly the columns `_cb_diffs`
-    returns, so the endpoint cannot tell the sources apart; ``info`` records what
-    was asked for and what was served -- including when the archive has no date
-    at the requested one and the nearest stored date was used instead.
+    The per-date series the archive is built from stopped publishing on
+    2026-10-25; the chart store the fixed windows come from kept advancing.  The
+    two are the same generation of checkonchain's own curves -- they agree at
+    $1,000 zones -- so a pair that runs past the archive can foot its END on the
+    freshest dated curve instead of on an ever-staler archive tail.  Only dates
+    beyond the archive are returned: inside it, the archive's own (finer) curve
+    is the right answer.
     """
-    info: Dict[str, Any] = {"requested_from": req_from, "requested_to": req_to,
-                            "from_snapped": False, "to_snapped": False,
-                            "archive": None, "missing": None, "reason": None}
-    df = _cb_archive()
-    if df is None:
-        info["reason"] = ("dated-curve archive not built — run "
-                          "fetch_checkonchain_urpd.py --backfill-series")
-        return None, info
-    days = _archive_dates(df)
-    first, last = date.fromisoformat(days[0]), date.fromisoformat(days[-1])
-    meta = _cb_archive_meta()
-    info["archive"] = {"first": days[0], "last": days[-1], "n_dates": len(days),
-                       "bucket_usd": CB_ARCHIVE_ZONE_USD,
-                       "cadence_days": meta.get("cadence_days", CB_ARCHIVE_CADENCE_FALLBACK),
-                       "daily_from": meta.get("daily_from")}
-    a, b = date.fromisoformat(req_from), date.fromisoformat(req_to)
-    lo = (first - timedelta(days=CB_SNAP_TOLERANCE_DAYS)).isoformat()
-    hi = (last + timedelta(days=CB_SNAP_TOLERANCE_DAYS)).isoformat()
-    for label, d in (("from", a), ("to", b)):
-        if not lo <= d.isoformat() <= hi:
-            # The fresh end may sit past the newest stored curve: within the
-            # grace it is answered from that curve (CB_FRESH_GRACE_DAYS) and the
-            # days the curve cannot reach are reported as missing.
-            if not (label == "to" and d.isoformat() > days[-1]
-                    and (d - last).days <= CB_FRESH_GRACE_DAYS):
-                info["reason"] = (f"{label} {d.isoformat()} is outside the archive, "
-                                  f"which covers {days[0]} to {days[-1]}")
-                return None, info
-    prev = _archive_snap(days, a.isoformat())
-    cur = _archive_snap(days, b.isoformat())
-    info["from_snapped"] = prev != a.isoformat()
-    info["to_snapped"] = cur != b.isoformat()
-    info["requested_span_days"] = (b - a).days
-    if prev is None or cur is None or prev >= cur:
-        info["reason"] = (f"the archive has no date between {req_from} and "
-                          f"{req_to} — both ends land on the same stored curve "
-                          f"({prev}); pick a wider window")
-        return None, info
-    if b.isoformat() > days[-1]:
-        # Days past the newest stored curve: the nearest anchor is that curve,
-        # and the tail it cannot reach is named, not silently dropped.
-        info["missing"] = {"from": (last + timedelta(days=1)).isoformat(),
-                           "to": b.isoformat()}
+    ddf = _cb_dated_curves()
+    if ddf is None:
+        return []
+    return [d for d in _archive_dates(ddf) if d > last]
 
-    def curve(day: str) -> pd.Series:
-        rows = df[df["_d"] == day]
-        return pd.Series(rows["value"].to_numpy(dtype="float64"),
-                         index=rows["price_bucket_usd"].to_numpy(dtype="float64")
-                         ).groupby(level=0).sum()
 
-    past, now = curve(prev), curve(cur)
+def _cb_pair_frame(past: pd.Series, now: pd.Series,
+                   prev: str, cur: str) -> pd.DataFrame:
+    """The subtraction both curve stores are read into, in one place.
+
+    `past`/`now` are supply by price bucket; the columns are exactly what
+    `_cb_diffs` returns, so no endpoint can tell the sources apart.  The
+    summation order (ascending by price) is the browser's too -- probe_dated_pair
+    diffs the two payloads field for field.
+    """
     grid = past.index.union(now.index).sort_values()
     past = past.reindex(grid, fill_value=0.0)
     now = now.reindex(grid, fill_value=0.0)
@@ -1231,8 +1204,141 @@ def _cb_archive_pair(req_from: str, req_to: str
     out["as_of_date"] = cur
     out["prev_as_of_date"] = prev
     out["span_days"] = (date.fromisoformat(cur) - date.fromisoformat(prev)).days
+    return out.sort_values("price_bucket_usd").reset_index(drop=True)
+
+
+def _cb_archive_pair(req_from: str, req_to: str
+                     ) -> Tuple[Optional[pd.DataFrame], Dict[str, Any]]:
+    """Subtract two dated curves from the per-date archive.
+
+    Returns ``(frame, info)``.  The frame carries exactly the columns `_cb_diffs`
+    returns, so the endpoint cannot tell the sources apart; ``info`` records what
+    was asked for and what was served -- including when the archive has no date
+    at the requested one and the nearest stored date was used instead.
+
+    The END is never refused for sitting past the newest stored curve.  It is
+    answered from the freshest curve of the same generation -- the dated store's
+    when that is newer than the archive's -- and the days beyond it come back as
+    ``missing``, the red flag the page prints.  "Not published yet" is not a
+    different question, and a reader dragging the pencil to the chart's right
+    edge must never get a blank panel.  The START still gets no such grace: a
+    window whose beginning has no curve cannot be drawn at all.
+    """
+    info: Dict[str, Any] = {"requested_from": req_from, "requested_to": req_to,
+                            "from_snapped": False, "to_snapped": False,
+                            "archive": None, "missing": None, "reason": None}
+    df = _cb_archive()
+    if df is None:
+        info["reason"] = ("dated-curve archive not built — run "
+                          "fetch_checkonchain_urpd.py --backfill-series")
+        return None, info
+    days = _archive_dates(df)
+    first, last = date.fromisoformat(days[0]), date.fromisoformat(days[-1])
+    meta = _cb_archive_meta()
+    info["archive"] = {"first": days[0], "last": days[-1], "n_dates": len(days),
+                       "bucket_usd": CB_ARCHIVE_ZONE_USD,
+                       "cadence_days": meta.get("cadence_days", CB_ARCHIVE_CADENCE_FALLBACK),
+                       "daily_from": meta.get("daily_from")}
+    a, b = date.fromisoformat(req_from), date.fromisoformat(req_to)
+    # A pair may end at a date only the dated store holds (it kept publishing
+    # after the archive's series stopped).  All such dates are newer than the
+    # archive's last, so they extend the candidate list, never replace it.
+    tail = _cb_dated_tail(days[-1])
+    newest = tail[-1] if tail else days[-1]
+    candidates = sorted(set(days) | set(tail))
+    lo = (first - timedelta(days=CB_SNAP_TOLERANCE_DAYS)).isoformat()
+    # Bounded by the UNION's newest curve, and by the same per-end tolerance the
+    # dated path uses: a start must be able to stand in for the date asked for.
+    # Naming the nearest curve AND its distance is what the reader can act on --
+    # "outside the archive, which covers 2016 to 2026" says nothing about a date
+    # that sits in a stretch the frozen archive simply never reached.
+    hi = (date.fromisoformat(newest)
+          + timedelta(days=CB_SNAP_TOLERANCE_DAYS)).isoformat()
+
+    def too_far(label: str, want: date, got: Optional[str]) -> str:
+        gap = abs((date.fromisoformat(got) - want).days) if got else None
+        return (f"{label} {want.isoformat()} is {gap} days from the nearest "
+                f"stored curve ({got}) — too far to stand in for it; pick a "
+                f"date within {CB_SNAP_TOLERANCE_DAYS} days of one"
+                if got else
+                f"{label} {want.isoformat()} is outside the stores, which cover "
+                f"{days[0]} to {newest}")
+
+    if not lo <= a.isoformat() <= hi:
+        info["reason"] = too_far("from", a, _archive_snap(candidates, a.isoformat()))
+        return None, info
+    if b.isoformat() > newest:
+        # Days past the newest curve of either store: answered from that curve,
+        # any distance out, and the tail beyond it is named -- never dropped.
+        cur = newest
+    else:
+        cur = _archive_snap(candidates, b.isoformat())
+        if cur is None or abs((date.fromisoformat(cur) - b).days) > CB_SNAP_TOLERANCE_DAYS:
+            info["reason"] = too_far("to", b, cur)
+            return None, info
+    prev = _archive_snap(candidates, a.isoformat())
+    if prev is None or abs((date.fromisoformat(prev) - a).days) > CB_SNAP_TOLERANCE_DAYS:
+        info["reason"] = too_far("from", a, prev)
+        return None, info
+    info["from_snapped"] = prev != a.isoformat()
+    info["to_snapped"] = cur != b.isoformat()
+    info["requested_span_days"] = (b - a).days
+    if prev is None or cur is None or prev >= cur:
+        info["reason"] = (f"the archive has no date between {req_from} and "
+                          f"{req_to} — both ends land on the same stored curve "
+                          f"({prev}); pick a wider window")
+        return None, info
+    if b.isoformat() > newest:
+        # Days past the newest curve of either store -- the one this pair is
+        # footed on: its tail is reported, not silently dropped.  A snap INSIDE
+        # the stores' span is not a gap (the weekly region stores one date a
+        # week, and the resolved dates are already named in the payload).
+        info["missing"] = {"from": (date.fromisoformat(cur) + timedelta(days=1)).isoformat(),
+                           "to": b.isoformat()}
+
+    def curve(day: str) -> pd.Series:
+        rows = df[df["_d"] == day]
+        return pd.Series(rows["value"].to_numpy(dtype="float64"),
+                         index=rows["price_bucket_usd"].to_numpy(dtype="float64")
+                         ).groupby(level=0).sum()
+
+    def zoned(frame: pd.DataFrame, day: str) -> pd.Series:
+        """One date's supply on $1,000 zones: the step every grid divides."""
+        rows = frame[frame["_d"] == day]
+        p = rows["price_bucket_usd"].to_numpy(dtype="float64")
+        v = rows["value"].to_numpy(dtype="float64")
+        return pd.Series(v, index=np.floor(p / CB_ZONE_USD) * CB_ZONE_USD
+                         ).groupby(level=0).sum()
+
+    # Which store holds each end.  Either may be the dated one: the END because
+    # it kept publishing past the freeze, the START because a window opening in
+    # the freeze's shadow still has a curve there.
+    adays = set(days)
+    start_store = "archive" if prev in adays else "dated"
+    end_store = "archive" if cur in adays else "dated"
+    if start_store == "archive" and end_store == "archive":
+        past, now = curve(prev), curve(cur)
+    else:
+        # A mixed pair: an archive $200 curve beside a dated $500 one.  Both ends
+        # are summed onto $1,000 -- the finest step both grids are exact on, so
+        # the subtraction is a sum of published values, not an estimate.  BOTH
+        # ends must move to that grid; leaving one on $200 would put its supply
+        # on a finer grid than the other and make a $200 union row read as a
+        # change that never happened.
+        ddf = _cb_dated_curves()
+        d_days = _archive_dates(ddf)
+        past = zoned(df, prev) if start_store == "archive" else zoned(ddf, prev)
+        now = zoned(df, cur) if end_store == "archive" else zoned(ddf, cur)
+        info["grid"] = {"zone_usd": CB_ZONE_USD, "regrouped": True}
+        info["dated_store"] = {"first": d_days[0], "last": d_days[-1],
+                               "n_dates": len(d_days),
+                               "bucket_usd": CB_DATED_ZONE_USD,
+                               "cadence_days": None}
+    info["start_store"] = start_store
+    info["end_store"] = end_store
+    out = _cb_pair_frame(past, now, prev, cur)
     info.update(as_of=cur, prev_as_of=prev, span_days=int(out["span_days"].iloc[0]))
-    return out.sort_values("price_bucket_usd").reset_index(drop=True), info
+    return out, info
 
 
 @lru_cache(maxsize=64)
@@ -1462,6 +1568,32 @@ def _cb_payload(df: pd.DataFrame, symbol: str, window: str, empty: Dict,
                          if prev_covers_to and prev_covers_to < px.max() else "")
                       + f" The newest dated curves are still being restated "
                         f"upstream, so a window ending at {as_of} is provisional. ")
+    elif kind == "archive-pair" and ((info or {}).get("end_store") == "dated"
+                                     or (info or {}).get("start_store") == "dated"):
+        which = {(False, True): f"the start from the per-date archive ({prev}), "
+                                f"the end from the publisher's dated store ({as_of})",
+                 (True, False): f"the start from the publisher's dated store "
+                                f"({prev}), the end from the per-date archive "
+                                f"({as_of})",
+                 (True, True): f"both ends from the publisher's dated store "
+                               f"({prev} and {as_of})"}
+        ends = which[((info or {}).get("start_store") == "dated",
+                      (info or {}).get("end_store") == "dated")]
+        provenance = (f"COMPUTED LOCALLY from two of checkonchain's own dated "
+                      f"curves: {ends}, summed onto ${bucket_usd:,.0f} zones — the "
+                      f"finest step both grids are exact on, so this is a sum of "
+                      f"published values, not an estimate. The per-date series the "
+                      f"archive is built from stopped publishing, so its curves end "
+                      f"at {info['archive']['last'] if info else as_of}; the dated "
+                      f"store kept advancing"
+                      + (f"; asked {info['requested_from']} → "
+                         f"{info['requested_to']}." if info else ".")
+                      + (f" The {prev} curve covers only to "
+                         f"${prev_covers_to:,.0f}, so every zone above that line "
+                         f"is supply that arrived since, not a like-for-like "
+                         f"pair." if prev_covers_to else " ")
+                      + f" The newest dates are still being restated upstream, so "
+                        f"a window ending at {as_of} is provisional. ")
     elif kind == "archive-pair":
         provenance = (f"COMPUTED LOCALLY from two dated curves in the archive "
                       f"({prev} minus {as_of}), on the archive's own "
@@ -1501,13 +1633,25 @@ def _cb_payload(df: pd.DataFrame, symbol: str, window: str, empty: Dict,
         }
         if kind == "archive-pair":
             extra["archive"] = info["archive"]
+            # Which store each end came from.  The archive holds both when it
+            # can; an end it cannot reach is footed on the dated store, which
+            # kept publishing after the freeze (see _cb_archive_pair).
+            extra["start_store"] = info.get("start_store")
+            extra["end_store"] = info.get("end_store")
+            if "dated" in (info.get("start_store"), info.get("end_store")):
+                extra["dated_store"] = info.get("dated_store")
+                extra["grid"] = info.get("grid")
         else:
             extra["dated_store"] = info["dated_store"]
             extra["grid"] = info.get("grid")
     return {
         "symbol": symbol, "window": window, "available": True,
         "as_of": as_of, "prev_as_of": prev, "data_vintage": as_of,
-        "source": (CB_ARCHIVE_SOURCE if kind == "archive-pair" else CB_SOURCE),
+        "source": (CB_MIXED_SOURCE if (kind == "archive-pair"
+                                       and "dated" in ((info or {}).get("start_store"),
+                                                       (info or {}).get("end_store")))
+                   else CB_ARCHIVE_SOURCE if kind == "archive-pair"
+                   else CB_SOURCE),
         "units": "BTC", "bucket_usd": bucket_usd,
         "span_days": int(span) if span is not None else None,
         "delta": [{"p": float(r.price_bucket_usd), "d": _f(r.delta),

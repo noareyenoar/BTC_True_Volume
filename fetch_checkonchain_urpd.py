@@ -65,6 +65,18 @@ on -- and keeps its newest anchors current, which is what makes a cost-basis
 window of the reader's choosing possible at all.  The archive is verified against
 the publisher's own precomputed diffs -- see the section comment above
 ``BITVIEW_BASE``.
+
+**The archive is FROZEN as of 2026-11-01.**  That endpoint 404s wholesale now
+(every date, and its dates listing -- first seen 2026-10-31), so the store stops
+at the last curve it managed to cache (2026-10-24 on the cloud, 2026-10-19 on the
+PC) and every routine run logs the outage and changes nothing.  Do not splice the
+dated store's newer curves into it: measured on 2026-10-19 the two generations
+differ by up to ~32,000 BTC in a single $1,000 zone near spot, so a splice would
+manufacture movement that never happened.  Recent windows are answered instead by
+footing the pair's END (and, in principle, its START) on the dated store, which
+kept advancing -- see ``visualizer/app.py::_cb_archive_pair``.  A full rebuild
+from the new host's API would move the archive off the generation the publisher's
+own precomputed diffs are on, so it would no longer reproduce them.
 """
 from __future__ import annotations
 
@@ -725,6 +737,13 @@ def build_series(rows: List[Dict[str, Any]], chart: str,
 # curve per date.  The endpoint is open and keyless and serves every published
 # date back to 2009-01-03 (6,465 of them), which is what makes a window of the
 # reader's choosing possible at all.
+#
+# IT 404s NOW (first seen 2026-10-31: every date AND /dates), so the sync below
+# finds no anchors, logs the outage, and leaves the archive at its last cached
+# curve.  That is the intended failure mode -- a frozen store beats a spliced
+# one (see the module docstring) -- and the cost-basis page foots recent windows
+# on the dated store instead.  The listing probe is kept so the day it comes back
+# the archive resumes on its own.
 #
 # Verified 2026-09-20, and the verification is the reason this is trusted:
 # the historical curves are BIT-IDENTICAL to the publisher's own precomputed

@@ -67,9 +67,11 @@
            Apply validates locally (both dates, start before end) and a pair
            outside the stores' span is answered by naming the span, never by
            quietly showing a different window. A pick whose END runs past the
-           newest stored curve is still answered — from that curve — and the red
-           "missing …" span below names the days beyond it, so the natural
-           drag-to-the-right-edge gesture explains itself instead of refusing.
+           newest stored curve is always answered — from that curve, however far
+           out — and the red "missing …" span below names the days beyond it, so
+           the natural drag-to-the-right-edge gesture explains itself instead of
+           refusing. Only a START before the stores' first date is refused: it
+           has no curve to draw from at all.
            The boxes hold dd/mm/yyyy; everything stored and sent is ISO
            (YYYY-MM-DD), the API's own format. -->
       <span id="cb-custom" class="datepair" title="Any window: pick two dates and subtract the supply curves stored for those dates">
@@ -191,11 +193,13 @@
   a few days, and the status strip names both the resolved dates and <b>which store answered</b>:
   the publisher's own <b>dated curves</b> when they can carry the pair (the same series the
   preset windows come from), the <b>per-date archive</b> otherwise (checkonchain's own series
-  API: <b>every day for its recent tail</b>, then one date a week back to 2016, so a window
-  ending today or yesterday is answered by that day's own curve). A window whose end runs past
-  the newest stored curve carries a red <b>missing …</b> flag naming those days — it names that
-  curve too, and when the store answering is the coarse one it says so, so the flag reads as
-  the edge of the data rather than as a refresh that failed. The newest stored dates are still being restated upstream,
+  API: <b>every day for its recent tail</b>, then one date a week back to 2016). That series
+  <b>stopped publishing on 25/10/2026</b>, so the archive is frozen at its last daily curve;
+  a window that runs past it is still answered — the start from the archive, the end from the
+  newest curve of the same generation the publisher does still ship (its own dated store),
+  summed onto $1,000 zones — and carries a red <b>missing …</b> flag naming the days beyond
+  that newest curve. The flag names the curve too, and when the store answering is the coarse
+  one it says so, so it reads as the edge of the data rather than as a refresh that failed. The newest stored dates are still being restated upstream,
   so a window ending within about a month of today is provisional; nothing before 03/01/2016 is
   available at all. The dated store serves a $500 price grid, the archive $200 — either way the
   <b>Who Moved</b> card groups its rows into $1,000 zones, so one wall of owners is one row

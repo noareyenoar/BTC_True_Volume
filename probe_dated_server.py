@@ -37,9 +37,12 @@ from visualizer import app                                   # noqa: E402
 #   6. now-2 -> now-1          -> both ends snap to the SAME dated curve -> refused
 #   7. end +5 past dated max   -> dated answers from its newest curve, `missing` flags
 #   8. end +1 past dated max   -> same, single-day flag (the drag-to-the-edge pick)
-#   9. end +5 past archive max -> archive answers, `missing` flags (the user's case)
-#  10. end +9 past archive max -> beyond every store's grace -> refused as before
-#  11. end +9 past dated max   -> dated declines on `to` first, refused as before
+#   9. end +5 past archive max -> the archive path answers: from the dated store's
+#                                newest curve when that is fresher (a mixed pair),
+#                                otherwise from the archive's own newest
+#  10. end +9 past archive max -> never refused; answered the same way, `missing`
+#                                names the tail (the user's case)
+#  11. end +9 past dated max   -> dated declines on `to`, the archive path answers
 # Expects are asserted: a rotation that turns a scenario into a different branch
 # is a loud failure, not a quiet pass.
 _D = timedelta(days=1)
@@ -54,12 +57,33 @@ def _preset_pair() -> tuple[date, date]:
     return p_from, p_to
 
 
+def _archive_tail_end(a_days: list, d_days: list, to: date) -> tuple:
+    """The end curve app._cb_archive_pair will foot `to` on, and its `missing`.
+
+    Mirrors the rule, using the app's own snap helper: a date past the newest
+    curve of either store is answered from that newest curve (any distance out);
+    inside the span it snaps to the nearest archive date or dated-store date
+    newer than the archive.  Returned so the scenario expectations can name the
+    branch they were built for instead of assuming one.
+    """
+    newest = max(a_days[-1], d_days[-1]) if d_days else a_days[-1]
+    if to > newest:
+        return newest, {"from": (newest + _D).isoformat(), "to": to.isoformat()}
+    cands = sorted(set(a_days) | {d for d in d_days if d > a_days[-1]})
+    return app._archive_snap(cands, to.isoformat()), None
+
+
 def main() -> int:
     p_from, p_to = _preset_pair()
-    d_last = date.fromisoformat(app._archive_dates(app._cb_dated_curves())[-1])
-    a_last = date.fromisoformat(app._archive_dates(app._cb_archive())[-1])
+    d_days = [date.fromisoformat(x)
+              for x in app._archive_dates(app._cb_dated_curves())]
+    a_days = [date.fromisoformat(x) for x in app._archive_dates(app._cb_archive())]
+    d_last, a_last = d_days[-1], a_days[-1]
     # (from, to, expected kind, print the status strip, expected `missing`,
     #  expected as_of or None to skip that check)
+    e9, m9 = _archive_tail_end(a_days, d_days, a_last + 5 * _D)
+    e10, m10 = _archive_tail_end(a_days, d_days, a_last + 9 * _D)
+    e11, m11 = _archive_tail_end(a_days, d_days, d_last + 9 * _D)
     pairs = [
         (p_from.isoformat(), p_to.isoformat(), "dated-pair-custom", True,
          None, p_to.isoformat()),
@@ -79,12 +103,11 @@ def main() -> int:
          {"from": (d_last + _D).isoformat(), "to": (d_last + _D).isoformat()},
          d_last.isoformat()),
         ((a_last - 14 * _D).isoformat(), (a_last + 5 * _D).isoformat(), "archive-pair", True,
-         {"from": (a_last + _D).isoformat(), "to": (a_last + 5 * _D).isoformat()},
-         a_last.isoformat()),
-        ((a_last - 14 * _D).isoformat(), (a_last + 9 * _D).isoformat(), "unavailable", True,
-         None, None),
-        (p_from.isoformat(), (d_last + 9 * _D).isoformat(), "unavailable", True,
-         None, None),
+         m9, e9.isoformat()),
+        ((a_last - 14 * _D).isoformat(), (a_last + 9 * _D).isoformat(), "archive-pair", True,
+         m10, e10.isoformat()),
+        (p_from.isoformat(), (d_last + 9 * _D).isoformat(), "archive-pair", True,
+         m11, e11.isoformat()),
     ]
     out, bad = [], []
     for fr, to, exp, strip, exp_missing, exp_as_of in pairs:

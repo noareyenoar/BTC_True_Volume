@@ -1620,6 +1620,11 @@ function buildMarkerToggles() {
  * since the daily region went in that is a real download (~1.6 MB): decoding it
  * on every visit would be a cost with no question attached to it. */
 const CB_ARCHIVE_SOURCE = "checkonchain_bitview_series_api";
+// A pair whose END is newer than the archive's last curve is footed on the
+// publisher's own dated store (same generation) while its START still comes from
+// the archive's series: two hosts in one answer, named as such. Same value as
+// app.CB_MIXED_SOURCE.
+const CB_MIXED_SOURCE = CB_ARCHIVE_SOURCE + "+" + CB_DATED_SOURCE;
 // A requested date may sit this far outside the archive and still snap to its
 // nearest stored date; further out is a different question, not a date we happen
 // to lack. Same value as app.CB_SNAP_TOLERANCE_DAYS.
@@ -1681,6 +1686,16 @@ function cbArchiveOffsets(ar) {
   ar.offsets = off;
   return off;
 }
+/* One date's slice of the archive, as parallel price/value lists -- the same
+ * shape cbDatedRows returns, so one subtraction loop serves both stores. */
+function cbArchiveRows(ar, day) {
+  const i = ar.dates.indexOf(day);
+  if (i < 0) return null;
+  const off = cbArchiveOffsets(ar)[i], n = ar.counts[i];
+  const p = new Array(n), v = new Array(n);
+  for (let k = 0; k < n; k++) { p[k] = k * ar.bucket_usd; v[k] = ar.supply[off + k] / 100; }
+  return { p: p, v: v };
+}
 async function cbLoadArchive(sym) {
   if (S.cbArchive) return S.cbArchive;
   const meta = (STATIC.cost_basis_archive || {})[sym];
@@ -1709,19 +1724,37 @@ function cbCustomNote(prev, asOf, provenance) {
     + "at the top of the range), not per bucket. " + provenance
     + `DATA VINTAGE ${asOf} — a dated measurement, not a live tape.`;
 }
-function cbArchiveNote(prev, asOf, reqFrom, reqTo, coversTo) {
-  const provenance = "COMPUTED LOCALLY from two dated curves in the archive "
-    + `(${prev} minus ${asOf}), on the archive's own ${fmtPx(CB_ARCHIVE_ZONE_USD)} grid: `
-    + "the publisher never built this window. Each end snaps to the nearest stored "
-    + "date — one curve a day for the recent tail, one a week before that"
-    + ` — asked ${reqFrom} → ${reqTo}.`
+function cbArchiveNote(prev, asOf, reqFrom, reqTo, coversTo, mixed, zone,
+                       startStore, endStore, archive) {
+  // Word for word with app._cb_payload: probe_dated_pair diffs the whole body,
+  // this sentence included.
+  const ends = startStore === "dated"
+    ? (endStore === "dated"
+        ? `both ends from the publisher's dated store (${prev} and ${asOf})`
+        : `the start from the publisher's dated store (${prev}), the end from `
+          + `the per-date archive (${asOf})`)
+    : `the start from the per-date archive (${prev}), the end from the `
+      + `publisher's dated store (${asOf})`;
+  const provenance = mixed
+    ? "COMPUTED LOCALLY from two of checkonchain's own dated curves: " + ends
+      + `, summed onto ${fmtPx(zone)} zones — the finest step both `
+      + "grids are exact on, so this is a sum of published values, not an "
+      + "estimate. The per-date series the archive is built from stopped "
+      + `publishing, so its curves end at ${archive.last}; the dated store kept `
+      + `advancing; asked ${reqFrom} → ${reqTo}.`
+    : "COMPUTED LOCALLY from two dated curves in the archive "
+      + `(${prev} minus ${asOf}), on the archive's own ${fmtPx(CB_ARCHIVE_ZONE_USD)} grid: `
+      + "the publisher never built this window. Each end snaps to the nearest stored "
+      + "date — one curve a day for the recent tail, one a week before that"
+      + ` — asked ${reqFrom} → ${reqTo}.`;
+  return cbCustomNote(prev, asOf, provenance
     + (coversTo
         ? ` The ${prev} curve covers only to ${fmtPx(coversTo)}, so every zone above `
           + "that line is supply that arrived since, not a like-for-like pair."
         : " ")
-    + ` The newest archive dates are still being restated upstream, so a window `
-    + `ending at ${asOf} is provisional. `;
-  return cbCustomNote(prev, asOf, provenance);
+    + (mixed ? " The newest dates are still being restated upstream, so a window "
+      : " The newest archive dates are still being restated upstream, so a window ")
+    + `ending at ${asOf} is provisional. `);
 }
 async function cbPairFromArchive(sym, reqFrom, reqTo) {
   const out = { ...CB_EMPTY, symbol: sym, window: CB_CUSTOM };
@@ -1744,95 +1777,182 @@ async function cbPairFromArchive(sym, reqFrom, reqTo) {
   const archive = { first: first, last: last, n_dates: days.length,
                     bucket_usd: ar.bucket_usd, cadence_days: ar.cadence_days,
                     daily_from: ar.daily_from };
-  const refuse = (label, d) => ({ ...out, requested_from: reqFrom, requested_to: reqTo,
-    archive: archive, note: `${label} ${d} is outside the archive, which covers `
-      + `${first} to ${last}` });
-  // ISO dates compare as strings, and so does the API's own bounds test
+  // The per-date series this archive is built from stopped publishing; the
+  // publisher's dated store (the curves the presets come from) kept advancing.
+  // Its dates newer than the archive's last are the SAME generation, so either
+  // end of a pair can be footed there. Loaded only when a requested date runs
+  // past the archive: every other pair stays a single download.
+  let dated = null, datedDays = null, tail = [];
+  if (reqTo > last || reqFrom > last) {
+    try { dated = await cbLoadDated(sym); } catch (e) { dated = null; }
+    if (dated) {
+      datedDays = dated.dates;
+      tail = datedDays.filter(d => d > last);
+    }
+  }
+  const newest = tail.length ? tail[tail.length - 1] : last;
+  const candidates = days.concat(tail);        // both ascending
+  // The refusal's own words, mirrored from app._cb_archive_pair: name the
+  // nearest stored curve AND the distance, because "outside the archive" says
+  // nothing about a date sitting in a stretch the frozen archive never reached.
+  const refuse = (label, want, got) => ({ ...out, requested_from: reqFrom,
+    requested_to: reqTo, archive: archive,
+    note: got ? `${label} ${want} is ${Math.abs(cbDaysBetween(got, want))} days `
+      + `from the nearest stored curve (${got}) — too far to stand in for it; `
+      + `pick a date within ${CB_SNAP_TOLERANCE_DAYS} days of one`
+      : `${label} ${want} is outside the stores, which cover ${first} to ${newest}` });
+  // ISO dates compare as strings, and so does the API's own bounds test. Only a
+  // START the stores cannot foot is refused: a date past the newest curve is
+  // answered from that curve, any distance out, and the tail comes back as
+  // `missing` -- the red flag, not a blank panel. Nor is a start in the days
+  // after the archive froze refused: the dated store holds those curves.
   const lo = cbAddDays(first, -CB_SNAP_TOLERANCE_DAYS);
-  const hi = cbAddDays(last, CB_SNAP_TOLERANCE_DAYS);
-  if (reqFrom < lo || reqFrom > hi) return refuse("from", reqFrom);
-  if (reqTo < lo) return refuse("to", reqTo);
-  // The fresh end may sit past the newest stored curve: within the grace it is
-  // answered from that curve (see CB_FRESH_GRACE_DAYS) and the days the curve
-  // cannot reach are reported as missing.
-  if (reqTo > hi && reqTo > cbAddDays(last, CB_FRESH_GRACE_DAYS))
-    return refuse("to", reqTo);
-  const prev = cbNearestDate(days, reqFrom), cur = cbNearestDate(days, reqTo);
+  const hi = cbAddDays(newest, CB_SNAP_TOLERANCE_DAYS);
+  if (reqFrom < lo || reqFrom > hi)
+    return refuse("from", reqFrom, cbNearestDate(candidates, reqFrom));
+  let cur;
+  if (reqTo > newest) {
+    cur = newest;
+  } else {
+    cur = cbNearestDate(candidates, reqTo);
+    if (!cur || Math.abs(cbDaysBetween(cur, reqTo)) > CB_SNAP_TOLERANCE_DAYS)
+      return refuse("to", reqTo, cur);
+  }
+  const prev = cbNearestDate(candidates, reqFrom);
+  if (!prev || Math.abs(cbDaysBetween(prev, reqFrom)) > CB_SNAP_TOLERANCE_DAYS)
+    return refuse("from", reqFrom, prev);
   const fromSnapped = prev !== reqFrom, toSnapped = cur !== reqTo;
   const asked = cbDaysBetween(reqTo, reqFrom);
-  // Days past the newest stored curve: the nearest stored date is that curve,
-  // and the tail it cannot reach is named, not silently dropped.
-  const missing = reqTo > last ? { from: cbAddDays(last, 1), to: reqTo } : null;
+  // Days past the newest curve of either store -- the one this pair is footed
+  // on: its tail is named, not silently dropped. A snap INSIDE the stores' span
+  // is not a gap (the weekly region stores one date a week, and the resolved
+  // dates are already in the payload).
+  const missing = reqTo > newest ? { from: cbAddDays(cur, 1), to: reqTo } : null;
   if (!prev || !cur || prev >= cur) {
     return { ...out, requested_from: reqFrom, requested_to: reqTo, archive: archive,
       note: `the archive has no date between ${reqFrom} and ${reqTo} — both ends `
         + `land on the same stored curve (${prev}); pick a wider window` };
   }
-
-  const off = cbArchiveOffsets(ar);
-  const pi = days.indexOf(prev), ci = days.indexOf(cur);
-  const nPast = ar.counts[pi], nNow = ar.counts[ci];
-  const n = Math.max(nPast, nNow);         // the union of two grids from $0, step 200
-  const past = new Array(n).fill(0), now = new Array(n).fill(0);
-  for (let i = 0; i < nPast; i++) past[i] = ar.supply[off[pi] + i] / 100;
-  for (let i = 0; i < nNow; i++) now[i] = ar.supply[off[ci] + i] / 100;
-  const delta = new Array(n);
-  const pos = new Array(n), neg = new Array(n);
+  // Which store holds each curve. Either end may be the dated one: the end
+  // because it kept publishing past the freeze, the start because a window
+  // opening in the freeze's shadow still has a curve there. Any dated end makes
+  // this a mixed pair: $1,000 is the finest step the archive's $200 grid and the
+  // dated store's $500 grid are both exact on, so the subtraction is a sum of
+  // published values, not an estimate -- and BOTH curves must move onto that
+  // grid, or a finer row on one side reads as a change that never happened.
+  const inArchive = d => days.indexOf(d) >= 0;
+  const startStore = inArchive(prev) ? "archive" : "dated";
+  const endStore = inArchive(cur) ? "archive" : "dated";
+  const mixed = startStore === "dated" || endStore === "dated";
+  const zone = mixed ? CB_ZONE_MIN_USD : ar.bucket_usd;
+  const rowsFor = (store, day) => (store === "dated"
+    ? cbDatedRows(dated, day) : cbArchiveRows(ar, day));
+  const pastRows = rowsFor(startStore, prev);
+  const nowRows = rowsFor(endStore, cur);
+  if (!pastRows || !nowRows) {
+    return { ...out, requested_from: reqFrom, requested_to: reqTo, archive: archive,
+      note: `no stored curve for ${prev} → ${cur}` };
+  }
+  const groupRows = (rows) => {
+    const m = new Map();
+    for (let i = 0; i < rows.p.length; i++) {
+      const k = Math.floor(rows.p[i] / zone) * zone;
+      m.set(k, (m.get(k) || 0) + rows.v[i]);
+    }
+    return m;
+  };
+  const pastMap = groupRows(pastRows), nowMap = groupRows(nowRows);
+  const grid = [...new Set([...pastMap.keys(), ...nowMap.keys()])].sort((x, y) => x - y);
+  const n = grid.length;
+  const pv = new Array(n), nv = new Array(n), delta = new Array(n);
+  const pos = new Array(n), neg = new Array(n), cumAcc = new Array(n), cumDist = new Array(n);
   let posSum = 0, negSum = 0, net = 0;
   for (let i = 0; i < n; i++) {
-    const d = now[i] - past[i];
+    pv[i] = pastMap.get(grid[i]) || 0;
+    nv[i] = nowMap.get(grid[i]) || 0;
+    const d = nv[i] - pv[i];
     delta[i] = d;
     pos[i] = d > 0 ? d : 0;
     neg[i] = d < 0 ? -d : 0;
     posSum += pos[i]; negSum += neg[i];
-    if (i > 0) net += d;                  // the $0 bucket is held out of net (see below)
+    if (grid[i] > 0) net += d;   // the $0 bucket is held out of net (see below)
   }
-  const cumAcc = new Array(n), cumDist = new Array(n);
   let aRun = 0, dRun = 0;
   for (let i = 0; i < n; i++) {
     aRun += pos[i]; dRun += neg[i];
     cumAcc[i] = posSum ? aRun / posSum : 0;
     cumDist[i] = negSum ? dRun / negSum : 0;
   }
-  // The grid is built from the archive's own bucket width, so the payload reports
-  // that width -- which is what app._cb_payload measures back out of the frame's
-  // price column (the smallest positive step of a dense $200 lattice is $200).
-  const bucketUsd = ar.bucket_usd;
+  // The width the payload reports is measured BACK OUT of the resulting rows,
+  // exactly as app._cb_payload does.
+  const bodyIdx = [];
+  for (let i = 0; i < n; i++) if (grid[i] > 0) bodyIdx.push(i);
+  let bucketUsd = null;
+  for (let k = 1; k < bodyIdx.length; k++) {
+    const step = grid[bodyIdx[k]] - grid[bodyIdx[k - 1]];
+    if (step > 0 && (bucketUsd === null || step < bucketUsd)) bucketUsd = step;
+  }
   // highest price at which the EARLIER curve still holds supply: above it the
   // change is supply that arrived since, not a like-for-like pair
   let coversTo = null;
-  for (let i = n - 1; i >= 0; i--) if (past[i] > 0) { coversTo = i * ar.bucket_usd; break; }
+  for (let k = bodyIdx.length - 1; k >= 0; k--) {
+    if (pv[bodyIdx[k]] > 0) { coversTo = grid[bodyIdx[k]]; break; }
+  }
   // the $0 bucket has no meaningful price: held out of the bars, reported against
   // excluded_zero_price_btc, and excluded from the net
-  const row = i => ({ p: i * ar.bucket_usd, d: delta[i], past: past[i], now: now[i],
-                      cum_acc: cumAcc[i], cum_dist: cumDist[i] });
+  let zeroNow = 0, zeroDelta = 0, nZero = 0;
+  for (let i = 0; i < n; i++) {
+    if (grid[i] <= 0) { zeroNow += nv[i]; zeroDelta += delta[i]; nZero++; }
+  }
   const body = [], pcurve = [], ccurve = [];
-  for (let i = 1; i < n; i++) {         // index 0 is the $0 bucket: no meaningful price
-    body.push(row(i));
-    pcurve.push({ p: i * ar.bucket_usd, s: past[i] });
-    ccurve.push({ p: i * ar.bucket_usd, s: now[i] });
+  for (const i of bodyIdx) {
+    body.push({ p: grid[i], d: delta[i], past: pv[i], now: nv[i],
+                cum_acc: cumAcc[i], cum_dist: cumDist[i] });
+    pcurve.push({ p: grid[i], s: pv[i] });
+    ccurve.push({ p: grid[i], s: nv[i] });
   }
   const as_of = cur, prev_as_of = prev;
-  return {
+  // The metric price for a date, from whichever store holds it -- both artifacts
+  // carry `price_usd` filled from the API's own _metric_on, so a date in either
+  // reads the same as the server's answer.
+  const priceOn = (day) => {
+    const ai = days.indexOf(day);
+    if (ai >= 0) return ar.price_usd ? ar.price_usd[ai] : null;
+    const di = datedDays ? datedDays.indexOf(day) : -1;
+    return di >= 0 && dated.price_usd ? dated.price_usd[di] : null;
+  };
+  const payload = {
     symbol: sym, window: CB_CUSTOM, available: true,
     as_of: as_of, prev_as_of: prev_as_of, data_vintage: as_of,
-    source: CB_ARCHIVE_SOURCE, units: "BTC", bucket_usd: bucketUsd,
+    source: mixed ? CB_MIXED_SOURCE : CB_ARCHIVE_SOURCE,
+    units: "BTC", bucket_usd: bucketUsd,
     span_days: cbDaysBetween(as_of, prev_as_of),
     delta: body,
     past: { date: prev_as_of, buckets: pcurve },
     current: { date: as_of, buckets: ccurve },
-    price_usd: ar.price_usd ? ar.price_usd[ci] : null,
-    price_usd_prev: ar.price_usd ? ar.price_usd[pi] : null,
+    price_usd: priceOn(as_of),
+    price_usd_prev: priceOn(prev_as_of),
     net_delta_btc: net,
-    excluded_zero_price_btc: { supply_btc: now[0], delta_btc: delta[0] },
+    excluded_zero_price_btc: nZero
+      ? { supply_btc: zeroNow, delta_btc: zeroDelta } : null,
     prev_curve_covers_to_usd: coversTo,
     computed: true,
-    note: cbArchiveNote(prev_as_of, as_of, reqFrom, reqTo, coversTo),
+    note: cbArchiveNote(prev_as_of, as_of, reqFrom, reqTo, coversTo,
+                        mixed, zone, startStore, endStore, archive),
     requested_from: reqFrom, requested_to: reqTo, requested_span_days: asked,
     from_snapped: fromSnapped, to_snapped: toSnapped, missing: missing,
     estimate_kind: "archive-pair", window_label: `${prev_as_of} → ${as_of}`,
     archive: archive,
+    start_store: startStore,
+    end_store: endStore,
   };
+  if (mixed) {
+    payload.dated_store = { first: datedDays[0], last: datedDays[datedDays.length - 1],
+                            n_dates: datedDays.length, bucket_usd: dated.bucket_usd,
+                            cadence_days: null };
+    payload.grid = { zone_usd: zone, regrouped: true };
+  }
+  return payload;
 }
 
 /* ---------------- the publisher's own dated curves ----------------
@@ -2207,12 +2327,22 @@ function updateCostBasisStatus() {
           ? `, so these are the stored dates nearest what was asked for` : "")
       + `</span>`
     : (d.estimate_kind === "archive-pair")
-      ? ` · <span class="mkt-note">the per-date archive`
-        + (d.from_snapped || d.to_snapped
-            ? (d.archive && d.archive.cadence_days >= 7
-                ? `, which stores one date a week`
-                : `, which stores every day for its recent tail`)
-              + ` — these are the stored dates nearest what was asked for` : "")
+      ? ` · <span class="mkt-note">`
+        + ((d.start_store || "archive") === "dated"
+            ? (d.end_store === "dated"
+                ? `the publisher's own dated curves for both ends`
+                : `the publisher's own dated curve for the start, the per-date `
+                  + `archive for the end`)
+            : d.end_store === "dated"
+            ? `the per-date archive for the start, the publisher's own newest `
+              + `dated curve for the end`
+            : `the per-date archive`
+              + (d.from_snapped || d.to_snapped
+                  ? (d.archive && d.archive.cadence_days >= 7
+                      ? `, which stores one date a week`
+                      : `, which stores every day for its recent tail`)
+                    + ` — these are the stored dates nearest what was asked for`
+                  : ""))
         + `</span>`
       : "";
   el.innerHTML = `<span>Cost basis <b>${cbWindowLabel(d)}</b> `
@@ -2433,18 +2563,11 @@ function cbStoreSpan() {
   const meta = (STATIC && STATIC.cost_basis_archive || {})[S.symbol];
   const dated = (STATIC && STATIC.cost_basis_dated || {})[S.symbol];
   if (!meta && !dated) return null;
-  const grace = (dated && dated.fresh_grace_days !== undefined)
-    ? dated.fresh_grace_days
-    : (meta && meta.fresh_grace_days !== undefined) ? meta.fresh_grace_days
-      : CB_FRESH_GRACE_DAYS;
   return {
     first: dated && meta ? (dated.first < meta.first ? dated.first : meta.first)
       : (dated || meta).first,
     last: dated && meta ? (dated.last > meta.last ? dated.last : meta.last)
       : (dated || meta).last,
-    // the fresh end is still answered for: a `to` past `last` is drawn from the
-    // newest stored curve up to this many days out (CB_FRESH_GRACE_DAYS)
-    grace: grace,
   };
 }
 /* Apply validates locally and says what is wrong in the strip rather than
@@ -2462,12 +2585,13 @@ function applyCustomCostBasis() {
       + `earlier than the end date (${fmtDay(to)}).`);
   }
   const span = cbStoreSpan();
-  // a `to` within the grace of the newest stored date is answered (from that
-  // date, with the tail shown as missing): see CB_FRESH_GRACE_DAYS
-  if (span && (from < span.first || to > cbAddDays(span.last, span.grace))) {
-    return cbStatusNote(`Custom window: the cost-basis stores answer `
-      + `${fmtDay(span.first)} → ${fmtDay(span.last)} — ${fmtDay(from)} → ${fmtDay(to)} `
-      + `is outside that span.`);
+  // Only the START is bounded. An end past the newest stored curve is answered
+  // from that curve, however far out, and the red flag names the days it cannot
+  // reach -- "not published yet" is not a different question, and the pencil
+  // dragged to the chart's right edge must never hit a local refusal.
+  if (span && from < span.first) {
+    return cbStatusNote(`Custom window: the cost-basis stores begin at `
+      + `${fmtDay(span.first)} — ${fmtDay(from)} is earlier than any curve they hold.`);
   }
   S.cbCustom = { from: from, to: to };
   localStorage.setItem("vsa_cb_custom_v1", JSON.stringify(S.cbCustom));

@@ -241,6 +241,35 @@ function perRowBound(ar, got) {
   hook.setStatic(JSON.parse(fs.readFileSync(path.join(SITE, "manifest.json"), "utf8")));
   if (!hook.readStatic()) { console.log("probe could not arm STATIC"); process.exit(2); }
   const scenarios = JSON.parse(fs.readFileSync(path.join(HERE, "probe_dated_server.json"), "utf8"));
+  /* The two sides of this diff read DIFFERENT things: the server bodies come from
+   * the parquet stores, the client's from the export in `site/`. They describe the
+   * same data only when the export was built from those stores -- always true in
+   * the cloud, where publish_site.py re-exports before the probes run, and on a
+   * box that has just exported, but NOT on a PC whose published copy has moved
+   * ahead of its own store. There the diff produced hundreds of field errors that
+   * read as a code bug when the cause was 5 days of missing data on one side.
+   * Say which it is instead of pretending to compare. */
+  const manQ = JSON.parse(fs.readFileSync(path.join(SITE, "manifest.json"), "utf8"));
+  // one server-side span per store, from whichever scenario carries it
+  const srvSpans = {};
+  for (const sc of scenarios) {
+    const b = sc.archive_payload || sc.payload;
+    if (!b) continue;
+    const which = sc.archive_payload ? "archive" : "dated";
+    const st = sc.archive_payload ? b.archive : b.dated_store;
+    if (st && st.first && !srvSpans[which]) srvSpans[which] = st;
+  }
+  for (const which of Object.keys(srvSpans)) {
+    const man = ((manQ["cost_basis_" + which] || {}).BTCUSDT) || {};
+    const s = srvSpans[which];
+    if (!man.first || (man.first === s.first && man.last === s.last)) continue;
+    console.log(`[SKIP] ${SITE} is not an export of this box's stores: its `
+      + `${which} runs ${man.first}..${man.last}, the store ${s.first}..${s.last}. `
+      + `Diffing across that gap reports data, not code. Either export first `
+      + `(python publish_site.py --no-push) or point PROBE_SITE at an export of `
+      + `these stores.`);
+    process.exit(2);
+  }
   let bad = 0;
   for (const sc of scenarios) {
     const label = `${sc.from} -> ${sc.to}`;
