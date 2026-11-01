@@ -286,6 +286,14 @@ jobs:
       # been published wrong; the page simply stayed a day behind.  A probe that
       # crashes is not a data verdict: reproduce it against the stores it was
       # meant to see before believing what the red says.
+      # The step after it failed too, and for a related reason: probe_dated_pair
+      # budgeted each archive row at ONE $200 stored bucket, which stops being
+      # true the moment a pair is mixed (archive start, dated end) and five
+      # buckets are summed onto a $1,000 zone.  Both assumptions were written
+      # against the state where the two stores end on the same day; the frozen
+      # archive now ends 8 days before the dated store.  Reproducing a red run on
+      # the box means giving the probes the SAME stores the runner had -- the
+      # published cost_basis artifact stands in for a stale local archive.
       - name: verify (verify_all)
         if: hashFiles('_state_ready') != ''
         working-directory: Dataset_Fetcher/BTC_True_Volume
