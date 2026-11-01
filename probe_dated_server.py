@@ -69,8 +69,15 @@ def _archive_tail_end(a_days: list, d_days: list, to: date) -> tuple:
     newest = max(a_days[-1], d_days[-1]) if d_days else a_days[-1]
     if to > newest:
         return newest, {"from": (newest + _D).isoformat(), "to": to.isoformat()}
-    cands = sorted(set(a_days) | {d for d in d_days if d > a_days[-1]})
-    return app._archive_snap(cands, to.isoformat()), None
+    # `_archive_snap` bisects ISO STRINGS (that is what the store's own date
+    # column holds) -- passing `date` objects raised TypeError, and the branch
+    # only became reachable when the dated store started running past the
+    # frozen archive: until then every `to` here was past `newest` and the
+    # early return above answered it.
+    cands = sorted({d.isoformat() for d in a_days}
+                   | {d.isoformat() for d in d_days if d > a_days[-1]})
+    got = app._archive_snap(cands, to.isoformat())
+    return (date.fromisoformat(got) if got else None), None
 
 
 def main() -> int:

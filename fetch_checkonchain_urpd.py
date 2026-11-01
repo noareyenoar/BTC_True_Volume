@@ -1230,6 +1230,14 @@ def cross_check_live(df: pd.DataFrame) -> Dict[str, Any]:
     ``SERIES_PROVISIONAL_DAYS`` of the archive's own newest date are therefore
     *measured and reported*, never failed -- and they are the reason the newest
     anchors are re-fetched on every run.
+
+    A disagreement is RETURNED (``out["disagreement"]``), not raised here: the
+    archive is frozen, so whether one is fatal depends on whether the rebuild
+    would ship different numbers, which only `write_archive` knows.  Measured
+    2026-11-01: the live ``urpd_diff_90`` chart restated 2026-08-03 -- 273.7 BTC
+    moved between two $1,000 zones around $63,000, net +1.5 BTC over 20.1M -- on a
+    date the archive rebuilds byte-identically.  That is upstream drifting from
+    the generation this store was built from, not a bad rebuild.
     """
     out: Dict[str, Any] = {"n_compared": 0, "compared": [], "legacy_skipped": [],
                            "provisional": [], "max_abs_delta": 0.0, "worst": None,
@@ -1280,10 +1288,43 @@ def cross_check_live(df: pd.DataFrame) -> Dict[str, Any]:
         if abs_max > out["max_abs_delta"]:
             out.update(max_abs_delta=abs_max, worst=day, max_rel=rel)
     if out["n_compared"] and out["max_rel"] > 5e-4:
-        raise ValueError(
+        # Returned, not raised: whether a disagreement is fatal depends on
+        # whether the archive it describes actually CHANGED -- `write_archive`
+        # decides, because only there is the rebuilt store's content known.
+        out["disagreement"] = (
             f"archive disagrees with the LIVE curve store on {out['worst']} by "
             f"{out['max_abs_delta']:,.0f} BTC ({out['max_rel'] * 100:.3f}%)")
     return out
+
+
+def _archive_unchanged(df: pd.DataFrame) -> bool:
+    """True if ``df`` carries the same curves as the archive already on disk.
+
+    Compared frame-to-frame rather than by file sha (the parquet bytes are only
+    produced by the write this decision gates).  The archive is FROZEN since the
+    series API stopped answering -- every run rebuilds it from the same cached
+    payloads and must land on the same numbers -- so "unchanged" is the normal
+    state, and the only one in which a live chart's restatement says nothing
+    about the rebuild.
+    """
+    path = OUT_DIR / ARCHIVE_NAME
+    if not path.exists():
+        return False
+    cols = ["as_of_date", "price_bucket_usd", "value"]
+
+    def digest(frame: pd.DataFrame) -> bytes:
+        key = frame[cols].sort_values(cols[:2], kind="stable")
+        return hashlib.sha256(pd.util.hash_pandas_object(key, index=False)
+                              .to_numpy().tobytes()).digest()
+
+    try:
+        old = pd.read_parquet(path)
+    except Exception:                                    # noqa: BLE001
+        return False
+    old["as_of_date"] = old["as_of_date"].astype(str).str[:10]
+    new = df.copy()
+    new["as_of_date"] = new["as_of_date"].astype(str).str[:10]
+    return digest(old) == digest(new)
 
 
 def stamp_archive_check(sync: Dict[str, Any]) -> None:
@@ -1328,7 +1369,28 @@ def write_archive(days: List[date], *, sync: Dict[str, Any],
     df = pd.DataFrame(rows)
     df["as_of_date"] = df["as_of_date"].astype("string")
     guards = archive_guards(df, stats)
+    unchanged = _archive_unchanged(df)
     cross = cross_check_live(df)
+    cross["unchanged_archive"] = unchanged
+    if cross.get("disagreement"):
+        # Fatal only when this run would SHIP different numbers.  The frozen
+        # archive is rebuilt from cached payloads every run, so a byte-identical
+        # rebuild that a freshly-rotated live anchor now disagrees with is the
+        # publisher restating that date -- the bitview generation this store was
+        # built from and the charts' generation diverge bucket-by-bucket at an
+        # identical total (see the store's own `known_limitations`).  Failing the
+        # run there would stop the daily refresh and the publish for a fact about
+        # upstream that this store cannot act on: it never re-derives an archived
+        # date from a chart.  A rebuild that DIFFERS still fails, loudly, because
+        # that is the corruption case the check exists for.
+        cross["disagreement_demoted"] = unchanged
+        if not unchanged:
+            raise ValueError(cross["disagreement"])
+        logger.warning("checkonchain: %s -- the archive is unchanged (frozen, "
+                       "rebuilt from the same cached payloads), so this is the "
+                       "live chart's restatement of that date, not a bad "
+                       "rebuild; keeping the archived curve",
+                       cross["disagreement"])
     vintage = sorted(stats["totals"])
     out = OUT_DIR / ARCHIVE_NAME
     meta = {
@@ -1397,12 +1459,17 @@ def write_archive(days: List[date], *, sync: Dict[str, Any],
             "build. An absent slot means zero supply at that price, never "
             "unknown supply.",
             "A $200 grid is a genuine second generation of the same data: it "
-            "matches the live charts bit-for-bit, but the mirror-era $200/$500 "
-            "snapshots in urpd_curves.parquet for the same dates differ "
-            "bucket-by-bucket at an identical total (2021-12-31: corr 0.987, "
-            "mean $200-bucket difference 15.6k BTC). Both are checkonchain's own "
-            "numbers from different pipeline generations; this store holds the "
-            "current one.",
+            "matched the live charts bit-for-bit while both were being fetched, "
+            "but the mirror-era $200/$500 snapshots in urpd_curves.parquet for "
+            "the same dates differ bucket-by-bucket at an identical total "
+            "(2021-12-31: corr 0.987, mean $200-bucket difference 15.6k BTC). "
+            "Both are checkonchain's own numbers from different pipeline "
+            "generations; this store holds the generation that ended when its "
+            "series API stopped answering, and the live charts keep being "
+            "restated from the newer one -- 2026-08-03 was restated on "
+            "2026-11-01 by 273.7 BTC in one $1,000 zone (net +1.5 BTC over "
+            "20.1M). Archived dates are never re-derived from a chart, so the "
+            "two will drift further apart, one date at a time.",
             "Third-party computed by checkonchain's node from UTXO data this "
             "project has never had -- a dated measurement, not a live tape.",
             "Undocumented host. The endpoint is open and CORS-enabled but carries "
