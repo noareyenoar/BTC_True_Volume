@@ -279,6 +279,13 @@ jobs:
       # step's name is the only part of a failed run you can read unauthenticated
       # (2026-10-16: it was the dated-pair probe, whose flag-text expectation had
       # gone stale behind a wording change in app.js).
+      # 2026-11-01: probe_dated_server raised TypeError in its OWN helper (a
+      # `date` list handed to a string bisector) -- a bug that only became
+      # reachable once the dated store ran past the frozen archive -- and the
+      # run went red with the push and the Pages build skipped.  Nothing had
+      # been published wrong; the page simply stayed a day behind.  A probe that
+      # crashes is not a data verdict: reproduce it against the stores it was
+      # meant to see before believing what the red says.
       - name: verify (verify_all)
         if: hashFiles('_state_ready') != ''
         working-directory: Dataset_Fetcher/BTC_True_Volume
