@@ -304,14 +304,23 @@ function perRowBound(ar, got) {
         }
         // The archive body is a different code path from the dated one and must
         // be reproduced field for field too -- the user's own case is
-        // archive-answered. $200 rows are one stored bucket wide each.
+        // archive-answered. The rounding budget per row is ONE STORED BUCKET
+        // wide only for a pure archive pair; a mixed pair sums five $200
+        // buckets onto a $1,000 zone, and both curves' centi-BTC rounding can
+        // pull a row apart by 5x that (measured 2026-11-01: the mixed pair
+        // 2026-10-10 -> 2026-10-29 differed by 0.005-0.008 per row and failed
+        // against a flat CENT*1.01 that was never meant to cover it). Read the
+        // width off the payload's own grid rather than assuming one generation.
         if (sc.archive_payload) {
           const out2 = [];
           if (!arch || !arch.available) {
             out2.push(`client did not answer from the archive: ${arch && arch.note}`);
           } else {
+            const archBucket = (arch.archive && arch.archive.bucket_usd) || 200;
+            const archZone = (arch.grid && arch.grid.zone_usd) || archBucket;
+            const archPerRow = CENT * Math.max(1, archZone / archBucket) * 1.01;
             deepDiff(arch, sc.archive_payload, "archive", out2,
-                     { nRows: arch.delta.length, perRow: CENT * 1.01,
+                     { nRows: arch.delta.length, perRow: archPerRow,
                        posSum: sumPos(arch.delta), negSum: sumNeg(arch.delta) });
           }
           if (out2.length) {
