@@ -15,7 +15,19 @@
   </div>
   <div class="controls">
     <select id="symbol" title="Symbol"></select>
-    <div id="intervals" class="btn-group" title="Audit-confirmed gap-clean intervals"></div>
+    <div id="intervals" class="btn-group"
+         title="Audit-confirmed gap-clean intervals; 1W is aggregated in the browser from the audited 1d bars"></div>
+    <div class="profile-wrap">
+      <span class="ctl-label">Candles</span>
+      <!-- Standard candles, or TradingView-style VOLUME CANDLES: each body's
+           width follows the volume source selected at the right, with exchange
+           volume as the fallback where that source has no value (a feed that has
+           not published a day must not make its candle vanish). Display only —
+           the series data, tooltip and volume panel are unchanged. The choice is
+           remembered (vsa_candle_style) and applies at every interval. -->
+      <div id="candle-style" class="btn-group"
+           title="Volume candles: candle body width follows the volume source selected at the right"></div>
+    </div>
     <div class="profile-wrap">
       <span class="ctl-label">Profile window</span>
       <div id="profile-window" class="btn-group" title="Price range the right-edge volume profile summarises — independent of the chart's own zoom"></div>

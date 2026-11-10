@@ -171,7 +171,8 @@ function parseDay(s) {
 }
 function fmtTs(ms, interval) {
   const iso = new Date(ms).toISOString();
-  return interval === "1d"
+  // 1W is stamped by its Monday, like 1d -- no clock time in either header.
+  return interval === "1d" || interval === "1W"
     ? fmtDay(iso.slice(0, 10))
     : `${fmtDay(iso.slice(0, 10))} ${iso.slice(11, 16)}`;
 }
@@ -242,7 +243,119 @@ async function fetchLiveTail(sym, iv) {
   }
   return [];                                       // offline/blocked -> exported data only
 }
+/* ---------------- weekly bars (1W is a DISPLAY interval) ----------------
+ * The API's audited set is 1m/1h/1d and the export ships those files; 1W is
+ * built here, in the browser, from the 1d series, so live mode and the static
+ * site behave identically and nothing new has to be exported. Weeks are Monday
+ * 00:00 UTC -- the anchor Binance's own 1w klines use.
+ *
+ * Every series in the pane shares ONE time scale: a series carrying a time that
+ * is not a loaded bar open inserts a logical slot of its own and shifts every
+ * logicalToCoordinate(i) lookup (heat columns, markers, the volume-candle
+ * primitive). That is why the ETF layer is folded to weeks as well -- renderEtf.
+ */
+function weekStartMs(ms) {
+  const d = new Date(ms);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(),
+                  d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+}
+/* Null-aware sum: a day with no value contributes nothing, and a week is null
+ * only when every one of its days is. */
+function addOrNull(a, b) {
+  if (b === null || b === undefined) return a;
+  return a === null || a === undefined ? b : a + b;
+}
+function weeklyBars(resp) {
+  const out = [];
+  let cur = null;
+  for (const b of resp.bars) {
+    const w = weekStartMs(b.open_time);
+    if (!cur || cur.open_time !== w) {
+      if (cur) out.push(cur);
+      cur = { open_time: w, open: b.open, high: b.high, low: b.low, close: b.close,
+              volume: b.volume || 0, taker_buy: b.taker_buy || 0,
+              market: b.market, resampled: !!b.resampled,
+              cross_filled: !!b.cross_filled, follows_gap: !!b.follows_gap,
+              live: !!b.live };
+    } else {
+      cur.high = Math.max(cur.high, b.high);
+      cur.low = Math.min(cur.low, b.low);
+      cur.close = b.close;
+      cur.volume += b.volume || 0;
+      cur.taker_buy += b.taker_buy || 0;
+      cur.market = b.market;
+      // A week carries every caveat any of its days carries. `live` is OR, not
+      // AND: the in-progress week is provisional even when its Monday came from
+      // the export and only the tail days are from the Binance live feed.
+      cur.resampled = cur.resampled || !!b.resampled;
+      cur.cross_filled = cur.cross_filled || !!b.cross_filled;
+      cur.follows_gap = cur.follows_gap || !!b.follows_gap;
+      cur.live = cur.live || !!b.live;
+    }
+  }
+  if (cur) out.push(cur);
+  const gaps = [...new Set((resp.gap_slots || []).map(weekStartMs))].sort((a, b) => a - b);
+  return { ...resp, interval: "1W", bars: out, gap_slots: gaps,
+           coverage: { start: out.length ? out[0].open_time : null,
+                       end: out.length ? out[out.length - 1].open_time : null,
+                       n: out.length } };
+}
+function weeklyBreakdown(resp) {
+  const groups = new Map();
+  for (const row of resp.bars) {
+    const w = weekStartMs(row.open_time);
+    let g = groups.get(w);
+    if (!g) {
+      groups.set(w, g = { open_time: w, sources: {
+        exchange_volume: null, tape_rollup_volume: null,
+        onchain_network_volume: null, onchain_network_volume_source: null,
+        large_trade_notional: null, open_interest_delta: null,
+        top_trader_positioning: null,
+        taker_buy_sell_split: { buy: null, sell: null } } });
+    }
+    const s = row.sources || {};
+    const o = g.sources;
+    o.exchange_volume = addOrNull(o.exchange_volume, s.exchange_volume);
+    o.tape_rollup_volume = addOrNull(o.tape_rollup_volume, s.tape_rollup_volume);
+    o.onchain_network_volume = addOrNull(o.onchain_network_volume, s.onchain_network_volume);
+    o.large_trade_notional = addOrNull(o.large_trade_notional, s.large_trade_notional);
+    // Daily OI diffs sum to the week's net change.
+    o.open_interest_delta = addOrNull(o.open_interest_delta, s.open_interest_delta);
+    const sp = s.taker_buy_sell_split;
+    if (sp) {
+      o.taker_buy_sell_split.buy = addOrNull(o.taker_buy_sell_split.buy, sp.buy);
+      o.taker_buy_sell_split.sell = addOrNull(o.taker_buy_sell_split.sell, sp.sell);
+    }
+    // Snapshot fields: the week is read at its last day that has one.
+    if (s.top_trader_positioning !== null && s.top_trader_positioning !== undefined)
+      o.top_trader_positioning = s.top_trader_positioning;
+    if (s.onchain_network_volume_source !== null
+        && s.onchain_network_volume_source !== undefined)
+      o.onchain_network_volume_source = s.onchain_network_volume_source;
+    if (row.pending) g.pending = true;
+  }
+  return { ...resp, interval: "1W", bars: [...groups.values()] };
+}
+
 async function api(path) {
+  /* 1W is a display interval: rewrite the request to the audited 1d series and
+   * collapse it here, so both the live server and the static export answer it
+   * without a new endpoint or artifact. `start` is floored to its Monday so the
+   * left-edge week is complete (loadOlder); `end` is left alone -- a partial
+   * right-edge week IS the in-progress week. */
+  const wu = new URL(path, location.href);
+  if (wu.searchParams.get("interval") === "1W") {
+    const what = wu.pathname.split("/").filter(Boolean).pop();
+    if (what === "ohlc" || what === "volume_breakdown") {
+      if (wu.searchParams.get("start") !== null) {
+        const s = Number(wu.searchParams.get("start"));
+        wu.searchParams.set("start", String(Math.max(0, weekStartMs(s))));
+      }
+      wu.searchParams.set("interval", "1d");
+      const daily = await api(wu.pathname + "?" + wu.searchParams.toString());
+      return what === "ohlc" ? weeklyBars(daily) : weeklyBreakdown(daily);
+    }
+  }
   if (!STATIC) {                     // live mode: the real backend
     const r = await fetch(path);
     if (!r.ok) throw new Error(`${path} -> HTTP ${r.status}`);
@@ -635,7 +748,7 @@ const SPOT_HEAT_RAMP = [[24, 16, 40], [74, 32, 96], [140, 52, 126],
                         [205, 82, 86], [255, 176, 58]];
 const DEPTH_HEAT_RAMP = [[10, 26, 38], [12, 62, 80], [18, 120, 132], [64, 190, 176]];
 const WALL_COLOR = "rgba(255,196,72,0.95)";
-const BAR_MS = { "1m": 60000, "1h": 3600000, "1d": 86400000 };
+const BAR_MS = { "1m": 60000, "1h": 3600000, "1d": 86400000, "1W": 604800000 };
 const heatCache = new Map();          // "spot|SYM|90d" -> payload
 
 function heatWindowValue(key, allowed, dflt) {
@@ -979,10 +1092,14 @@ const profilePrimitive = {
 };
 candleSeries.attachPrimitive(profilePrimitive);
 /* v4 exposes no public invalidate() on a primitive; re-attaching definitely marks
- * the pane dirty, so a window switch repaints without touching the series data. */
+ * the pane dirty, so a window switch repaints without touching the series data.
+ * Both candle-pane primitives are re-attached: the volume-profile bars and the
+ * volume-candle bodies (see drawVolumeCandles) are painted from live state. */
 function requestRedraw() {
   candleSeries.detachPrimitive(profilePrimitive);
   candleSeries.attachPrimitive(profilePrimitive);
+  candleSeries.detachPrimitive(volumeCandlePrimitive);
+  candleSeries.attachPrimitive(volumeCandlePrimitive);
 }
 
 /* ---------------- volume panel ---------------- */
@@ -1060,16 +1177,149 @@ function renderVolume() {
             && bd.onchain_network_volume !== null
             && bd.onchain_network_volume !== undefined) fb++;
       }
-      if (fb) status += ` — ${fb} day${fb === 1 ? "" : "s"} from checkonchain fallback`;
+      if (fb) {
+        const unit = S.interval === "1W" ? "week" : "day";
+        status += ` — ${fb} ${unit}${fb === 1 ? "" : "s"} from checkonchain fallback`;
+      }
     }
   }
   S.statusSource = status;
   updateSourceStatus();
+  requestRedraw();       // widths are normalised to the visible range
 }
 
 function sourceLabel(key) {
   const m = S.sourcesMeta.find(s => s.key === key);
   return m ? m.label : key;
+}
+
+/* ---------------- volume candles ----------------
+ * TradingView's "volume candles": each body's width follows that bar's volume.
+ * The built-in candlestick series keeps the DATA (auto-scale, crosshair,
+ * markers, price line) but is painted transparent, and a primitive draws the
+ * candles instead -- the same attach/redraw pattern the profile and heat layers
+ * use, so nothing else about the chart changes.
+ *
+ * The number is the one the volume panel shows: whatever #source selects, with
+ * exchange volume as the fallback where that source has no value (a feed that
+ * has not published a day must not make its candle vanish). Widths are
+ * normalised to the VISIBLE range (p90) like TradingView, so zooming into a
+ * quiet era still shows that era's shape; sqrt keeps mid-range bars readable
+ * instead of collapsing everything below the p90. */
+const candleStyleState = {
+  mode: localStorage.getItem("vsa_candle_style") === "volume" ? "volume" : "standard",
+};
+function volumeWidthValue(b) {
+  let v = S.source === "exchange_volume" ? b.volume : barSourceValue(b);
+  if (v === null || v === undefined || !isFinite(v)) v = b.volume;
+  if (v === null || v === undefined || !isFinite(v)) return 0;
+  return Math.abs(v);            // open_interest_delta is signed
+}
+function drawVolumeCandles(target) {
+  if (candleStyleState.mode !== "volume") return;
+  target.useMediaCoordinateSpace(({ context: ctx, mediaSize }) => {
+    const vis = chart.timeScale().getVisibleLogicalRange();
+    if (!vis || !S.bars.length) return;
+    const from = Math.max(0, Math.floor(vis.from) - 1);
+    const to = Math.min(S.bars.length - 1, Math.ceil(vis.to) + 1);
+    if (to < from) return;
+    const spacing = chart.timeScale().options().barSpacing || 6;
+    const vals = [];
+    for (let i = from; i <= to; i++) {
+      const v = volumeWidthValue(S.bars[i]);
+      if (v > 0) vals.push(v);
+    }
+    if (!vals.length) return;
+    vals.sort((a, b) => a - b);
+    const ref = vals[Math.min(vals.length - 1, Math.floor(vals.length * 0.9))];
+    const minW = Math.max(1, spacing * 0.12);
+    const maxW = Math.max(minW, Math.min(spacing - 1, spacing * 0.92));
+    // Fully zoomed out (1m over years) a body is a 1px line either way; batch
+    // those into one path per colour instead of 250k canvas calls.
+    const dense = spacing < 2.5;
+    const lines = { up: [], dn: [] };
+    for (let i = from; i <= to; i++) {
+      const b = S.bars[i];
+      const x = chart.timeScale().logicalToCoordinate(i);
+      if (x === null || x < -spacing || x > mediaSize.width + spacing) continue;
+      const yO = candleSeries.priceToCoordinate(b.open);
+      const yC = candleSeries.priceToCoordinate(b.close);
+      const yH = candleSeries.priceToCoordinate(b.high);
+      const yL = candleSeries.priceToCoordinate(b.low);
+      if (yO === null || yC === null || yH === null || yL === null) continue;
+      const v = volumeWidthValue(b);
+      const t = ref > 0 ? Math.min(1, Math.sqrt(v / ref)) : 0;
+      const w = Math.max(1, Math.round(minW + (maxW - minW) * t));
+      const cx = Math.round(x);
+      const wy0 = Math.round(Math.min(yH, yL));
+      const wy1 = Math.round(Math.max(yH, yL));
+      const k = b.close >= b.open ? "up" : "dn";
+      if (dense) { lines[k].push([cx, wy0, wy1]); continue; }
+      ctx.strokeStyle = k === "up" ? UP : DOWN;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx + 0.5, wy0);
+      ctx.lineTo(cx + 0.5, wy1);
+      ctx.stroke();
+      ctx.fillStyle = k === "up" ? UP : DOWN;
+      ctx.fillRect(cx - Math.floor(w / 2), Math.round(Math.min(yO, yC)),
+                   w, Math.max(1, Math.round(Math.abs(yC - yO))));
+    }
+    if (dense) {
+      for (const k of ["up", "dn"]) {
+        if (!lines[k].length) continue;
+        ctx.strokeStyle = k === "up" ? UP : DOWN;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (const [cx, y0, y1] of lines[k]) {
+          ctx.moveTo(cx + 0.5, y0);
+          ctx.lineTo(cx + 0.5, y1);
+        }
+        ctx.stroke();
+      }
+    }
+  });
+}
+const volumeCandlePrimitive = {
+  paneViews() {
+    return [{ zOrder: () => "normal", renderer: () => ({ draw: drawVolumeCandles }) }];
+  },
+};
+candleSeries.attachPrimitive(volumeCandlePrimitive);
+const CANDLE_OPAQUE = { upColor: UP, downColor: DOWN,
+                        wickUpColor: UP, wickDownColor: DOWN };
+/* Alpha-0, NOT the background colour: a body painted in the pane's background
+ * would also erase the heat layer behind each candle. `visible:false` is worse
+ * still -- it drops the series from auto-scale and hides its markers. */
+const CANDLE_CLEAR = { upColor: "rgba(0,0,0,0)", downColor: "rgba(0,0,0,0)",
+                       wickUpColor: "rgba(0,0,0,0)", wickDownColor: "rgba(0,0,0,0)" };
+function applyCandleStyle() {
+  candleSeries.applyOptions(candleStyleState.mode === "volume" ? CANDLE_CLEAR : CANDLE_OPAQUE);
+  requestRedraw();
+}
+function buildCandleStyleButtons() {
+  const wrap = document.getElementById("candle-style");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  for (const mode of ["standard", "volume"]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = mode;
+    b.dataset.cs = mode;
+    b.title = mode === "volume"
+      ? "Volume candles: body width follows the volume source selected below; bars where that source has no value fall back to exchange volume"
+      : "Normal candles, equal width";
+    b.classList.toggle("active", mode === candleStyleState.mode);
+    b.addEventListener("click", () => {
+      candleStyleState.mode = mode;
+      localStorage.setItem("vsa_candle_style", mode);
+      for (const x of wrap.querySelectorAll("button"))
+        x.classList.toggle("active", x.dataset.cs === mode);
+      applyCandleStyle();
+    });
+    wrap.appendChild(b);
+  }
+  applyCandleStyle();
 }
 
 /* ---------------- markers ----------------
@@ -1122,7 +1372,8 @@ async function loadInterval() {
   S.bars = resp.bars; S.gapSlots = resp.gap_slots;
   S.range = { start: S.bars.length ? S.bars[0].open_time : 0,
               end: S.bars.length ? S.bars[S.bars.length - 1].open_time : 0 };
-  chart.timeScale().applyOptions({ timeVisible: S.interval !== "1d", secondsVisible: false });
+  chart.timeScale().applyOptions({ timeVisible: S.interval !== "1d" && S.interval !== "1W",
+                                   secondsVisible: false });
   candleSeries.setData(S.bars.map(b => ({ time: b.open_time / 1000, open: b.open,
     high: b.high, low: b.low, close: b.close })));
   S.sourcesMeta = (await api(`/api/volume_breakdown?symbol=${S.symbol}&interval=${S.interval}&limit=1`)).sources;
@@ -1168,6 +1419,11 @@ async function refreshBreakdown() {
     for (const b of resp.bars) {
       const src = b.sources;
       S.breakdown.set(b.open_time, {
+        // exchange_volume belongs here too: the #source dropdown offers
+        // "Exchange Reported" and both barSourceValue and the tooltip's own
+        // exchange branch look it up -- without this key that option painted
+        // nothing and read n/a on every bar.
+        exchange_volume: src.exchange_volume,
         tape_rollup_volume: src.tape_rollup_volume,
         onchain_network_volume: src.onchain_network_volume,
         onchain_volume_source: src.onchain_network_volume_source,
@@ -1221,7 +1477,7 @@ function paintTooltip(openTime, ptx, pty) {
       ? `<tr><td class="k src-label">${m.label}</td><td class="v loading">loading…</td></tr>`
       : val === null
         ? `<tr><td class="k src-label">${m.label}</td><td class="v na">n/a</td></tr>`
-        : `<tr><td class="k src-label">${m.label}<br><span class="src-meta">${m.units} · ${m.resolution} · ${tag(m.confidence)}</span></td><td class="v">${val}</td></tr>`;
+        : `<tr><td class="k src-label">${m.label}<br><span class="src-meta">${m.units} · ${S.interval === "1W" ? "week total" : m.resolution} · ${tag(m.confidence)}</span></td><td class="v">${val}</td></tr>`;
     rows.push(row);
     void srcMeta;
   }
@@ -1419,7 +1675,10 @@ function buildIntervalButtons() {
   const wrap = document.getElementById("intervals");
   wrap.innerHTML = "";
   const symInfo = S.audited.find(s => s.symbol === S.symbol);
-  const intervals = symInfo ? symInfo.intervals : ["1h", "1d"];
+  const intervals = (symInfo ? symInfo.intervals : ["1h", "1d"]).slice();
+  // 1W is aggregated in the browser from the audited 1d series (see api()), so
+  // it needs no server support -- offered wherever 1d is.
+  if (intervals.includes("1d") && !intervals.includes("1W")) intervals.push("1W");
   for (const iv of intervals) {
     const b = document.createElement("button");
     b.textContent = iv;
@@ -2838,10 +3097,30 @@ function renderEtf() {
     });
   }
   const pts = [];
-  for (const [day, usd] of (d ? d.points : [])) {
-    const t = Date.parse(day + "T00:00:00Z") / 1000;
-    if (!S.bars.length || t * 1000 < S.range.start || t * 1000 > S.range.end) continue;
-    pts.push({ time: t, value: usd, color: usd >= 0 ? UP : DOWN });
+  if (S.interval === "1W") {
+    /* Fold the daily flows onto their week. This is not cosmetic: a series
+     * carrying a time that is not a loaded bar open inserts its own logical
+     * slot in this pane's shared time scale, and every logicalToCoordinate(i)
+     * lookup (heat columns, markers, volume candles) would then be off by the
+     * slots it added. Summing is also the right weekly flow; 0.0 session days
+     * (weekends/holidays) contribute zero. */
+    const byWeek = new Map();
+    for (const [day, usd] of (d ? d.points : [])) {
+      const t = Date.parse(day + "T00:00:00Z");
+      if (!S.bars.length || t < S.range.start) continue;
+      const w = weekStartMs(t);
+      if (w > S.range.end) continue;           // past the last loaded week
+      byWeek.set(w, (byWeek.get(w) || 0) + usd);
+    }
+    for (const [w, usd] of byWeek) {
+      pts.push({ time: w / 1000, value: usd, color: usd >= 0 ? UP : DOWN });
+    }
+  } else {
+    for (const [day, usd] of (d ? d.points : [])) {
+      const t = Date.parse(day + "T00:00:00Z") / 1000;
+      if (!S.bars.length || t * 1000 < S.range.start || t * 1000 > S.range.end) continue;
+      pts.push({ time: t, value: usd, color: usd >= 0 ? UP : DOWN });
+    }
   }
   etfState.series.setData(pts);
   etfState.series.applyOptions({ visible: etfState.visible });
@@ -2871,6 +3150,23 @@ function etfFlowText(usd) {
 function etfTooltipRow(openTime) {
   const d = etfState.data;
   if (!d || !etfState.visible) return "";   // a hidden layer makes no claims
+  if (S.interval === "1W") {
+    /* The bar is a week: its flow is the sum of the seven sessions it holds.
+     * Days outside the series' span are skipped; a week the series has not
+     * reached at all is named rather than shown as a partial total. */
+    let sum = 0, seen = 0, quiet = 0;
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(openTime + i * 86400000).toISOString().slice(0, 10);
+      const v = etfState.byDay.get(day);
+      if (v === undefined) continue;
+      seen++; sum += v;
+      if (!v) quiet++;                        // 0.0 = no US session
+    }
+    const key = `<td class="k src-label">ETF net flow (USD)<br><span class="src-meta">weekly total · US spot BTC ETFs · this week</span></td>`;
+    if (!seen) return `<tr>${key}<td class="v na">n/a — series starts ${fmtDay(d.first)}</td></tr>`;
+    if (seen === quiet) return `<tr>${key}<td class="v na">no US session this week</td></tr>`;
+    return `<tr>${key}<td class="v" style="color:${sum > 0 ? UP : DOWN}">${etfFlowText(sum)}</td></tr>`;
+  }
   const day = new Date(openTime).toISOString().slice(0, 10);
   const v = etfState.byDay.get(day);
   const key = `<td class="k src-label">ETF net flow (USD)<br><span class="src-meta">daily · US spot BTC ETFs · this day</span></td>`;
@@ -3061,6 +3357,7 @@ function showNewDataChip(m) {
     }
     buildIntervalButtons();
     document.getElementById("intervals").querySelector(`[data-iv="${S.interval}"]`)?.classList.add("active");
+    buildCandleStyleButtons();
     buildProfileButtons();
     buildCostBasisButtons();
     buildHeatButtons();
