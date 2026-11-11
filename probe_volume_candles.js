@@ -396,8 +396,10 @@ function dailyRows() {
     r = recorder();
     h.drawVolumeCandles(r.target);
     eq("volume mode paints one body per visible bar", r.rec.rects.length, 2);
-    eq("the high-volume body is wider", [r.rec.rects[0].w, r.rec.rects[1].w], [5, 9]);
-    ok("bodies are centred on the bar", r.rec.rects[0].x === 48 && r.rec.rects[1].x === 56,
+    // Linear against the visible maximum, like TradingView: 100 is a quarter of
+    // 400, so its body is a quarter of the 9px maximum (rounded), not ~half.
+    eq("the high-volume body is wider", [r.rec.rects[0].w, r.rec.rects[1].w], [2, 9]);
+    ok("bodies are centred on the bar", r.rec.rects[0].x === 49 && r.rec.rects[1].x === 56,
        JSON.stringify(r.rec.rects));
     eq("wicks are stroked for both bars", r.rec.strokes, 2);
     eq("up bar is painted UP", r.rec.rects[0].fill, "#26a69a");
