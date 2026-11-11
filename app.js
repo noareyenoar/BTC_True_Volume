@@ -1203,9 +1203,11 @@ function sourceLabel(key) {
  * The number is the one the volume panel shows: whatever #source selects, with
  * exchange volume as the fallback where that source has no value (a feed that
  * has not published a day must not make its candle vanish). Widths are
- * normalised to the VISIBLE range (p90) like TradingView, so zooming into a
- * quiet era still shows that era's shape; sqrt keeps mid-range bars readable
- * instead of collapsing everything below the p90. */
+ * normalised LINEARLY against the biggest volume in the VISIBLE range, the way
+ * TradingView's volume candles are: a quiet bar is a thin line, a heavy bar
+ * nearly fills its slot, and a bar at a quarter of the range's peak volume is
+ * a quarter as wide. (An earlier sqrt-versus-p90 mapping compressed that
+ * spread until every candle looked almost the same width.) */
 const candleStyleState = {
   mode: localStorage.getItem("vsa_candle_style") === "volume" ? "volume" : "standard",
 };
@@ -1231,9 +1233,8 @@ function drawVolumeCandles(target) {
     }
     if (!vals.length) return;
     vals.sort((a, b) => a - b);
-    const ref = vals[Math.min(vals.length - 1, Math.floor(vals.length * 0.9))];
-    const minW = Math.max(1, spacing * 0.12);
-    const maxW = Math.max(minW, Math.min(spacing - 1, spacing * 0.92));
+    const ref = vals[vals.length - 1];        // the visible maximum
+    const maxW = Math.max(1, Math.min(spacing - 1, spacing * 0.95));
     // Fully zoomed out (1m over years) a body is a 1px line either way; batch
     // those into one path per colour instead of 250k canvas calls.
     const dense = spacing < 2.5;
@@ -1248,8 +1249,8 @@ function drawVolumeCandles(target) {
       const yL = candleSeries.priceToCoordinate(b.low);
       if (yO === null || yC === null || yH === null || yL === null) continue;
       const v = volumeWidthValue(b);
-      const t = ref > 0 ? Math.min(1, Math.sqrt(v / ref)) : 0;
-      const w = Math.max(1, Math.round(minW + (maxW - minW) * t));
+      const t = ref > 0 ? Math.min(1, v / ref) : 0;
+      const w = Math.max(1, Math.round(t * maxW));
       const cx = Math.round(x);
       const wy0 = Math.round(Math.min(yH, yL));
       const wy1 = Math.round(Math.max(yH, yL));
