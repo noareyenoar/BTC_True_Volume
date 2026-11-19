@@ -29,19 +29,21 @@ from visualizer import app                                   # noqa: E402
 # own endpoints keeps every scenario pointed at a live branch of the rule:
 #   1. preset-exact            both ends stored -> dated, reproduces the 30d window
 #   2. start 2 days off        -> dated with from_snapped (inside the 4-day tolerance)
-#   3. start 5 days off        -> outside the dated tolerance, archive must answer
-#                                (and, with a daily archive, on an exact stored date)
+#   3. start 5 days off        -> outside the dated tolerance, so the archive path
+#                                takes it; which END branch answers is derived by
+#                                _archive_tail_end, not assumed
 #   4. history (2020 pair)     -> archive answers (dated store has no 2020 anchor there;
 #                                the weekly region is what serves it)
 #   5. 2022-12-31 -> now       -> dated across grid generations, regrouped at $1,000
 #   6. now-2 -> now-1          -> both ends snap to the SAME dated curve -> refused
 #   7. end +5 past dated max   -> dated answers from its newest curve, `missing` flags
 #   8. end +1 past dated max   -> same, single-day flag (the drag-to-the-edge pick)
-#   9. end +5 past archive max -> the archive path answers: from the dated store's
-#                                newest curve when that is fresher (a mixed pair),
-#                                otherwise from the archive's own newest
-#  10. end +9 past archive max -> never refused; answered the same way, `missing`
-#                                names the tail (the user's case)
+#   9. end +5 past archive max -> if the dated store has dates past the archive
+#                                tail the date can sit INSIDE the union, where it
+#                                must snap within 4 days or be refused; with the
+#                                dated store lagging it is past the newest and
+#                                answered with `missing` -- derived, not assumed
+#  10. end +9 past archive max -> same derivation one tolerance-width further out
 #  11. end +9 past dated max   -> dated declines on `to`, the archive path answers
 # Expects are asserted: a rotation that turns a scenario into a different branch
 # is a loud failure, not a quiet pass.
@@ -58,26 +60,39 @@ def _preset_pair() -> tuple[date, date]:
 
 
 def _archive_tail_end(a_days: list, d_days: list, to: date) -> tuple:
-    """The end curve app._cb_archive_pair will foot `to` on, and its `missing`.
+    """(kind, as_of, missing) for an END asked at `to` on the archive path.
 
-    Mirrors the rule, using the app's own snap helper: a date past the newest
-    curve of either store is answered from that newest curve (any distance out);
-    inside the span it snaps to the nearest archive date or dated-store date
-    newer than the archive.  Returned so the scenario expectations can name the
-    branch they were built for instead of assuming one.
+    Mirrors _cb_archive_pair step for step against the stores as they are NOW:
+    the candidates are the archive's dates plus the dated store's dates past
+    the archive's tail; an END past the union's newest is answered from that
+    newest curve by any distance (with `missing`), while an END inside the
+    span must snap within CB_SNAP_TOLERANCE_DAYS of a stored curve or the pair
+    is refused (the refusal names the nearest curve and its distance).  The
+    branch is DERIVED, not assumed: the archive froze on 2026-10-19 while the
+    dated store kept publishing, so a date five days past the archive's tail
+    can sit inside the union and be refused -- expecting the old
+    past-the-newest answer there is what turned every run red from 2026-11-11.
     """
-    newest = max(a_days[-1], d_days[-1]) if d_days else a_days[-1]
+    last = a_days[-1]
+    newest = max(last, d_days[-1]) if d_days else last
     if to > newest:
-        return newest, {"from": (newest + _D).isoformat(), "to": to.isoformat()}
+        return ("archive-pair", newest,
+                {"from": (newest + _D).isoformat(), "to": to.isoformat()})
     # `_archive_snap` bisects ISO STRINGS (that is what the store's own date
     # column holds) -- passing `date` objects raised TypeError, and the branch
     # only became reachable when the dated store started running past the
-    # frozen archive: until then every `to` here was past `newest` and the
-    # early return above answered it.
+    # frozen archive.
     cands = sorted({d.isoformat() for d in a_days}
-                   | {d.isoformat() for d in d_days if d > a_days[-1]})
+                   | {d.isoformat() for d in d_days if d > last})
     got = app._archive_snap(cands, to.isoformat())
-    return (date.fromisoformat(got) if got else None), None
+    if got is None:
+        return "unavailable", None, None
+    got_d = date.fromisoformat(got)
+    if abs((got_d - to).days) > app.CB_SNAP_TOLERANCE_DAYS:
+        return "unavailable", None, None
+    # A snap inside the stores' span is not a gap: the resolved dates are
+    # already named in the payload, so no `missing` flag is emitted.
+    return "archive-pair", got_d, None
 
 
 def main() -> int:
@@ -88,16 +103,17 @@ def main() -> int:
     d_last, a_last = d_days[-1], a_days[-1]
     # (from, to, expected kind, print the status strip, expected `missing`,
     #  expected as_of or None to skip that check)
-    e9, m9 = _archive_tail_end(a_days, d_days, a_last + 5 * _D)
-    e10, m10 = _archive_tail_end(a_days, d_days, a_last + 9 * _D)
-    e11, m11 = _archive_tail_end(a_days, d_days, d_last + 9 * _D)
+    k3, e3, m3 = _archive_tail_end(a_days, d_days, p_to - 7 * _D)
+    k9, e9, m9 = _archive_tail_end(a_days, d_days, a_last + 5 * _D)
+    k10, e10, m10 = _archive_tail_end(a_days, d_days, a_last + 9 * _D)
+    k11, e11, m11 = _archive_tail_end(a_days, d_days, d_last + 9 * _D)
     pairs = [
         (p_from.isoformat(), p_to.isoformat(), "dated-pair-custom", True,
          None, p_to.isoformat()),
         ((p_from + 2 * _D).isoformat(), p_to.isoformat(), "dated-pair-custom", False,
          None, p_to.isoformat()),
-        ((p_from + 5 * _D).isoformat(), (p_to - 7 * _D).isoformat(), "archive-pair", True,
-         None, None),
+        ((p_from + 5 * _D).isoformat(), (p_to - 7 * _D).isoformat(), k3, True,
+         m3, e3.isoformat() if e3 else None),
         ("2020-03-01", "2020-04-01", "archive-pair", False, None, None),
         ("2022-12-31", p_to.isoformat(), "dated-pair-custom", False,
          None, p_to.isoformat()),
@@ -109,12 +125,12 @@ def main() -> int:
         (p_from.isoformat(), (d_last + _D).isoformat(), "dated-pair-custom", True,
          {"from": (d_last + _D).isoformat(), "to": (d_last + _D).isoformat()},
          d_last.isoformat()),
-        ((a_last - 14 * _D).isoformat(), (a_last + 5 * _D).isoformat(), "archive-pair", True,
-         m9, e9.isoformat()),
-        ((a_last - 14 * _D).isoformat(), (a_last + 9 * _D).isoformat(), "archive-pair", True,
-         m10, e10.isoformat()),
-        (p_from.isoformat(), (d_last + 9 * _D).isoformat(), "archive-pair", True,
-         m11, e11.isoformat()),
+        ((a_last - 14 * _D).isoformat(), (a_last + 5 * _D).isoformat(), k9, True,
+         m9, e9.isoformat() if e9 else None),
+        ((a_last - 14 * _D).isoformat(), (a_last + 9 * _D).isoformat(), k10, True,
+         m10, e10.isoformat() if e10 else None),
+        (p_from.isoformat(), (d_last + 9 * _D).isoformat(), k11, True,
+         m11, e11.isoformat() if e11 else None),
     ]
     out, bad = [], []
     for fr, to, exp, strip, exp_missing, exp_as_of in pairs:
